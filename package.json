@@ -1,0 +1,35 @@
+{
+  "name": "espresso-com-monitor",
+  "version": "0.0.1",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build && electron-builder",
+    "preview": "vite preview",
+    "electron:dev": "vite --mode electron",
+    "electron:build": "vue-tsc --noEmit && vite build --mode electron && electron-builder"
+  },
+  "dependencies": {
+    "@types/node": "^24.9.2",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.12",
+    "electron-log": "^5.4.3",
+    "pinia": "^3.0.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "vue": "^3.5.22",
+    "vue-tsc": "^3.1.2"
+  },
+  "devDependencies": {
+    "vite-plugin-checker": "^0.11.0",
+    "vite-plugin-vue-devtools": "^8.0.3",
+    "vite-plugin-vue-inspector": "^5.3.2"
+  }
+}

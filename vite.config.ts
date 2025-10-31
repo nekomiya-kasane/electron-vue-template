@@ -1,0 +1,109 @@
+// configuration entrance for Vite
+import { defineConfig } from "vite";
+// this plugin interprets the .vue files
+import vue from "@vitejs/plugin-vue";
+// this plugin builds electron-related source files
+import electron from "vite-plugin-electron";
+// this plugin supports the renderer process to use node.js runtime APIs
+import renderer from "vite-plugin-electron-renderer";
+
+import path from "path"; // Node.js path module
+
+// additional plugins
+// this plugin checks typescript and vue files
+import checker from "vite-plugin-checker"; 
+// this plugin enables vue devtools
+import vueDevtools from "vite-plugin-vue-devtools";
+// this plugin allows inspecting vue component in the browser (by clicking the component or something)
+import inspector from "vite-plugin-vue-inspector";
+
+export default defineConfig({
+  plugins: [
+    vue({
+      include: [path.resolve(__dirname, "src/**/*.vue")],
+      exclude: [],
+      template: {
+        compilerOptions: {
+          isCustomElement: (tag) => tag === "electron-api",
+          whitespace: "preserve",
+          comments: true,
+          delimiters: ["{{", "}}"],
+          directiveTransforms: {},
+          nodeTransforms: [],
+        },
+      },
+      script: {
+        babelParserPlugins: [
+          "decorators",
+          "classProperties",
+          "typescript",
+          "jsx",
+        ],
+        propsDestructure: true,
+        globalTypeFiles: ["node_modules/@types/node/index.d.ts"],
+        hoistStatic: true,
+      },
+      style: {
+        trim: false,
+      },
+      features: {
+        customElement: true,
+        optionsAPI: false,
+      },
+    }),
+    electron([
+      {
+        entry: "electron/main.ts",
+        onstart(options) {
+          options.startup();
+        },
+        vite: {
+          build: {
+            outDir: "dist-electron",
+            rollupOptions: {
+              external: ["electron"],
+            },
+            watch: {},
+          },
+        },
+      },
+      {
+        entry: "electron/preload.ts",
+        onstart(options) {
+          options.reload();
+        },
+        vite: {
+          build: {
+            outDir: "dist-electron",
+            watch: {},
+          },
+        },
+      },
+    ]),
+    renderer({
+      resolve: {},
+    }),
+
+    // additional
+    checker({
+      typescript: true,
+      vueTsc: true,
+      overlay: {
+        initialIsOpen: true,
+        position: "tr",
+        badgeStyle: "bg-red-500",
+        panelStyle: "bg-red-500",
+      },
+    }),
+    vueDevtools(),
+    inspector({
+      toggleButtonVisibility: "always",
+      toggleComboKey: "ctrl", // Ctrl + Click to toggle
+    }),
+  ],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+    },
+  },
+});
