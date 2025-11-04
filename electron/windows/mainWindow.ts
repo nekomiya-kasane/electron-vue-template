@@ -35,6 +35,7 @@ export function createMainWindow() {
   // step 2: load the window context
   if (isDev) {
     mainWindow.loadURL(`http://localhost:${config.port}`);
+    mainWindow.webContents.openDevTools(); // open dev tools in development mode automatically
   } else {
     mainWindow.loadFile(path.join(process.cwd(), "../../dist/index.html"));
   }
@@ -44,6 +45,11 @@ export function createMainWindow() {
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
     mainWindow.focus();
+  });
+
+  //   handle failed to load
+  mainWindow.webContents.on("did-fail-load", (event, errorCode, errorDescription) => {
+    logger.error(`did-fail-load: ${errorCode} - ${errorDescription}`);
   });
 
   //   prevent navigation to external urls
