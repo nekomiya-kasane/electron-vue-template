@@ -123,10 +123,6 @@
       });
     </script>
 
-    <!-- entrance point for vite -->
-    <!-- this is necessary as it creates the vue app and mounts it to the dom with id "app" -->
-    <script type="module" src="/src/main.ts"></script>
-
     <!-- Vue app container -->
     <div id="app">
       <!-- loading screen should be loaded before the app is ready -->
@@ -134,5 +130,9 @@
         <div class="loading-spinner"></div>
       </div>
     </div>
+
+    <!-- entrance point for vite -->
+    <!-- this is necessary as it creates the vue app and mounts it to the dom with id "app" -->
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

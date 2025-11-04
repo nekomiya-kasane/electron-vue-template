@@ -8,6 +8,11 @@ import electron from "vite-plugin-electron";
 import renderer from "vite-plugin-electron-renderer";
 
 import path from "path"; // Node.js path module
+import { fileURLToPath } from "url";
+
+// Define __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // additional plugins
 // this plugin checks typescript and vue files
@@ -26,8 +31,7 @@ export default defineConfig({
   },
   plugins: [
     vue({
-      include: [path.resolve(__dirname, "src/**/*.vue")],
-      exclude: [],
+      include: [/\.vue$/],
       template: {
         compilerOptions: {
           isCustomElement: (tag) => tag === "electron-api",

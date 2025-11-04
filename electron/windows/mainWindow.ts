@@ -38,7 +38,7 @@ export function createMainWindow() {
     mainWindow.loadURL(`http://localhost:${config.port}`);
     mainWindow.webContents.openDevTools(); // open dev tools in development mode automatically
   } else {
-    mainWindow.loadFile(path.join(process.cwd(), "../../dist/index.html"));
+    mainWindow.loadFile(path.join(process.cwd(), "dist/index.html"));
   }
 
   // step 3:
