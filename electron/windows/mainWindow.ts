@@ -1,5 +1,6 @@
 import { BrowserWindow, shell } from "electron";
 import path from "path";
+import { fileURLToPath } from "url";
 
 // local imports
 import { config, isDev } from "../config";
@@ -20,7 +21,7 @@ export function createMainWindow() {
     frame: true,
 
     webPreferences: {
-      preload: path.join(process.cwd(), "preload.js"),
+      preload: path.join(fileURLToPath(import.meta.url), "../preload.js"),
       nodeIntegration: false, // allow the renderer process to access node.js APIs
       contextIsolation: true, // let the renderer process and main process share the same context,
       sandbox: false, // enable sandbox for more security, but will impact performance. So we disable it.
