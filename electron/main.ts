@@ -23,15 +23,15 @@ app.whenReady().then(() => {
 // handle activate event (mainly for macOS)
 // when app is activated, create the main window or focus on it if it already exists
 // on Windows/Linux, this event is never triggered
-  app.on("activate", () => {
+app.on("activate", () => {
   logger.info("app activated");
 
-    if (BrowserWindow.getAllWindows().length === 0) {
-      windowManager.createMainWindow();
-    } else {
-      windowManager.getMainWindow()?.focus();
-    }
-  });
+  if (BrowserWindow.getAllWindows().length === 0) {
+    windowManager.createMainWindow();
+  } else {
+    windowManager.getMainWindow()?.focus();
+  }
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
@@ -48,3 +48,46 @@ if (config.isDev) {
   app.commandLine.appendSwitch("disable-web-security");
 }
 app.commandLine.appendSwitch("disable-extensions");
+
+// for development
+if (config.isDev) {
+  const appEvents = [
+    "will-finish-launching",
+    "ready",
+    "window-all-closed",
+    "before-quit",
+    "will-quit",
+    "quit",
+    "open-file",
+    "open-url",
+    "activate",
+    "continue-activity",
+    "will-continue-activity",
+    "continue-activity-error",
+    "activity-was-continued",
+    "update-activity-state",
+    "new-window-for-tab",
+    "browser-window-created",
+    "web-contents-created",
+    "certificate-error",
+    "select-client-certificate",
+    "login",
+    "gpu-info-update",
+    "gpu-process-crashed",
+    "renderer-process-crashed",
+    "render-process-gone",
+    "child-process-gone",
+    "accessibility-support-changed",
+    "session-created",
+    "second-instance",
+  ];
+
+  appEvents.forEach((eventName) => {
+    app.on(eventName as any, (...args) => {
+      logger.info(`\n[APP EVENT] ${eventName}`, {
+        timestamp: new Date().toISOString(),
+        args: args.length > 0 ? args : "no args",
+      });
+    });
+  });
+}
