@@ -18,7 +18,7 @@ import vueDevtools from "vite-plugin-vue-devtools";
 import inspector from "vite-plugin-vue-inspector";
 
 export default defineConfig({
-server: {
+  server: {
     port: 12543,
   },
   build: {
@@ -66,6 +66,7 @@ server: {
         vite: {
           build: {
             outDir: "dist-electron",
+            sourcemap: true, // 启用 source map
             rollupOptions: {
               external: ["electron"],
             },
@@ -81,6 +82,7 @@ server: {
         vite: {
           build: {
             outDir: "dist-electron",
+            sourcemap: true, // 启用 source map
             watch: {},
           },
         },
