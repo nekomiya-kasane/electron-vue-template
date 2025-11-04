@@ -18,6 +18,12 @@ import vueDevtools from "vite-plugin-vue-devtools";
 import inspector from "vite-plugin-vue-inspector";
 
 export default defineConfig({
+server: {
+    port: 12543,
+  },
+  build: {
+    sourcemap: true,
+  },
   plugins: [
     vue({
       include: [path.resolve(__dirname, "src/**/*.vue")],

@@ -4,7 +4,7 @@ export const isProduction = !isDev
 export const config = {
     isDev,
     isProduction,
-    port: process.env.PORT || 12345,
+    port: process.env.PORT || 12543,
     app: {
         name: "Nekomiya App",
         version: "1.0.0",
