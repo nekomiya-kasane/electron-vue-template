@@ -40,21 +40,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineProps, defineEmits } from 'vue'
-
-export interface MenuItem {
-  id: string
-  label: string
-  icon?: string
-  shortcut?: string
-  submenu?: MenuItem[]
-  action?: () => void
-}
-
-export interface MenuSection {
-  title?: string
-  items: MenuItem[]
-}
+import { ref } from 'vue'
+import type { MenuItem, MenuSection } from '@/core/plugin/types'
 
 defineProps<{
   isOpen: boolean

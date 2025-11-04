@@ -31,42 +31,38 @@
       <IconBar
         position="left"
         :items="leftIconBarItems"
-        :active-id="activeLeftPanel"
+        :active-id="activeLeftPanel || undefined"
         @select="toggleLeftPanel"
       />
 
       <!-- 左侧边栏 -->
-      <transition name="sidebar-slide">
+      <transition name="sidebar-width">
         <Sidebar
           v-if="activeLeftPanel"
-          :title="getLeftPanelTitle()"
+          :title="getLeftPanelTitle() || ''"
         >
           <component :is="getLeftPanelComponent()" />
         </Sidebar>
       </transition>
 
-      <!-- 中间编辑区 -->
-      <div class="editor-area">
-        <div class="editor-header">
-          <input 
-            type="text" 
-            class="doc-title" 
-            placeholder="无标题文档"
-            :value="currentTab?.title"
-          />
-        </div>
-        <div class="editor-content">
-          <div class="editor-placeholder">
-            在此处开始编写...
-          </div>
+      <!-- 中间主区域 -->
+      <div class="main-area">
+        <component 
+          v-if="activeMainView"
+          :is="getMainViewComponent()"
+          v-bind="activeMainView.props"
+        />
+        <div v-else class="empty-state">
+          <div class="empty-icon">📝</div>
+          <div class="empty-text">选择一个文档开始编辑</div>
         </div>
       </div>
 
       <!-- 右侧边栏 -->
-      <transition name="sidebar-slide">
+      <transition name="sidebar-width">
         <Sidebar
           v-if="activeRightPanel"
-          :title="getRightPanelTitle()"
+          :title="getRightPanelTitle() || ''"
         >
           <component :is="getRightPanelComponent()" />
         </Sidebar>
@@ -76,7 +72,7 @@
       <IconBar
         position="right"
         :items="rightIconBarItems"
-        :active-id="activeRightPanel"
+        :active-id="activeRightPanel || undefined"
         @select="toggleRightPanel"
       />
     </div>
@@ -95,24 +91,19 @@
 import { ref, computed } from 'vue'
 import TitleBar from './TitleBar.vue'
 import Sidebar from './Sidebar.vue'
-import IconBar, { type IconBarItem } from './IconBar.vue'
+import IconBar from './IconBar.vue'
 import TabBar, { type Tab } from './TabBar.vue'
-import AppMenu, { type MenuSection } from './AppMenu.vue'
+import AppMenu from './AppMenu.vue'
+import { pluginManager } from '@/core/plugin'
 
-// 侧边栏内容组件
-import DocTree from '../panels/DocTree.vue'
-import Outline from '../panels/Outline.vue'
-import Backlinks from '../panels/Backlinks.vue'
-import Bookmarks from '../panels/Bookmarks.vue'
-import Tags from '../panels/Tags.vue'
+// 从插件管理器获取状态
+const state = pluginManager.state
 
 // 标签页管理
 const tabs = ref<Tab[]>([
   { id: '1', title: '欢迎使用', icon: '📄' }
 ])
 const activeTabId = ref('1')
-
-const currentTab = computed(() => tabs.value.find(t => t.id === activeTabId.value))
 
 const selectTab = (id: string) => {
   activeTabId.value = id
@@ -139,83 +130,78 @@ const addTab = () => {
   activeTabId.value = newId
 }
 
-// 左侧面板
-const activeLeftPanel = ref<string>('doc-tree')
-const leftIconBarItems: IconBarItem[] = [
-  { id: 'doc-tree', icon: '📁', title: '文档树' },
-  { id: 'bookmarks', icon: '⭐', title: '书签' },
-  { id: 'tags', icon: '🏷️', title: '标签' }
-]
+// 图标栏按钮 - 从插件系统获取
+const leftIconBarItems = computed(() => 
+  state.iconButtons.filter(btn => btn.position === 'left')
+)
+
+const rightIconBarItems = computed(() => 
+  state.iconButtons.filter(btn => btn.position === 'right')
+)
+
+// 侧边栏管理
+const activeLeftPanel = computed(() => state.activeSidebars.left)
+const activeRightPanel = computed(() => state.activeSidebars.right)
 
 const toggleLeftPanel = (id: string) => {
-  activeLeftPanel.value = activeLeftPanel.value === id ? '' : id
+  // 切换侧边栏状态
+  if (state.activeSidebars.left === id) {
+    state.activeSidebars.left = null
+  } else {
+    state.activeSidebars.left = id
+  }
+  
+  // 通知插件（在状态更新后）
+  const eventBus = pluginManager.getEventBus()
+  eventBus.emit('iconbar:click', id, 'left')
+}
+
+const toggleRightPanel = (id: string) => {
+  // 切换侧边栏状态
+  if (state.activeSidebars.right === id) {
+    state.activeSidebars.right = null
+  } else {
+    state.activeSidebars.right = id
+  }
+  
+  // 通知插件（在状态更新后）
+  const eventBus = pluginManager.getEventBus()
+  eventBus.emit('iconbar:click', id, 'right')
 }
 
 const getLeftPanelTitle = () => {
-  const item = leftIconBarItems.find(i => i.id === activeLeftPanel.value)
-  return item?.title || ''
-}
-
-const getLeftPanelComponent = () => {
-  switch (activeLeftPanel.value) {
-    case 'doc-tree': return DocTree
-    case 'bookmarks': return Bookmarks
-    case 'tags': return Tags
-    default: return null
-  }
-}
-
-// 右侧面板
-const activeRightPanel = ref<string>('outline')
-const rightIconBarItems: IconBarItem[] = [
-  { id: 'outline', icon: '📋', title: '大纲' },
-  { id: 'backlinks', icon: '🔗', title: '反链' }
-]
-
-const toggleRightPanel = (id: string) => {
-  activeRightPanel.value = activeRightPanel.value === id ? '' : id
+  if (!state.activeSidebars.left) return ''
+  return state.sidebars.get(state.activeSidebars.left)?.title || ''
 }
 
 const getRightPanelTitle = () => {
-  const item = rightIconBarItems.find(i => i.id === activeRightPanel.value)
-  return item?.title || ''
+  if (!state.activeSidebars.right) return ''
+  return state.sidebars.get(state.activeSidebars.right)?.title || ''
+}
+
+const getLeftPanelComponent = () => {
+  if (!state.activeSidebars.left) return null
+  return state.sidebars.get(state.activeSidebars.left)?.component || null
 }
 
 const getRightPanelComponent = () => {
-  switch (activeRightPanel.value) {
-    case 'outline': return Outline
-    case 'backlinks': return Backlinks
-    default: return null
-  }
+  if (!state.activeSidebars.right) return null
+  return state.sidebars.get(state.activeSidebars.right)?.component || null
+}
+
+// 主视图管理
+const activeMainView = computed(() => state.activeMainView)
+
+const getMainViewComponent = () => {
+  if (!state.activeMainView) return null
+  return state.mainViews.get(state.activeMainView.id)?.component || null
 }
 
 // 应用菜单
 const isMenuOpen = ref(false)
 const menuPosition = ref({ x: 0, y: 0 })
 
-const menuSections: MenuSection[] = [
-  {
-    items: [
-      { id: 'new-doc', label: '新建文档', icon: '📄', shortcut: 'Ctrl+N' },
-      { id: 'new-notebook', label: '新建笔记本', icon: '📁' }
-    ]
-  },
-  {
-    items: [
-      { id: 'open', label: '打开', icon: '📂', shortcut: 'Ctrl+O' },
-      { id: 'recent', label: '最近打开', icon: '🕒', submenu: [
-        { id: 'recent-1', label: '文档 1' },
-        { id: 'recent-2', label: '文档 2' }
-      ]}
-    ]
-  },
-  {
-    items: [
-      { id: 'settings', label: '设置', icon: '⚙️', shortcut: 'Ctrl+,' },
-      { id: 'about', label: '关于', icon: 'ℹ️' }
-    ]
-  }
-]
+const menuSections = computed(() => state.menuSections)
 
 const handleMenuClick = (event: { x: number; y: number }) => {
   menuPosition.value = event
@@ -319,8 +305,8 @@ const closeWindow = () => {
   overflow: hidden;
 }
 
-/* 编辑区 */
-.editor-area {
+/* 主区域 */
+.main-area {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -328,51 +314,43 @@ const closeWindow = () => {
   overflow: hidden;
 }
 
-.editor-header {
-  padding: 20px 40px 10px;
-  border-bottom: 1px solid #e3e5e7;
-  flex-shrink: 0;
-}
-
-.doc-title {
-  width: 100%;
-  border: none;
-  outline: none;
-  font-size: 24px;
-  font-weight: 600;
-  color: #202124;
-  padding: 8px 0;
-}
-
-.doc-title::placeholder {
-  color: #dadce0;
-}
-
-.editor-content {
+.empty-state {
   flex: 1;
-  padding: 20px 40px;
-  overflow-y: auto;
-  line-height: 1.8;
-}
-
-.editor-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   color: #9aa0a6;
-  font-size: 14px;
 }
 
-/* 侧边栏过渡动画 */
-.sidebar-slide-enter-active,
-.sidebar-slide-leave-active {
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 16px;
+}
+
+/* 侧边栏宽度动画 */
+.sidebar-width-enter-active,
+.sidebar-width-leave-active {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
 }
 
-.sidebar-slide-enter-from {
+.sidebar-width-enter-from,
+.sidebar-width-leave-to {
+  width: 0;
+  min-width: 0;
   opacity: 0;
-  transform: translateX(-20px);
 }
 
-.sidebar-slide-leave-to {
-  opacity: 0;
-  transform: translateX(-20px);
+.sidebar-width-enter-to,
+.sidebar-width-leave-from {
+  width: 260px;
+  min-width: 200px;
+  opacity: 1;
 }
 </style>

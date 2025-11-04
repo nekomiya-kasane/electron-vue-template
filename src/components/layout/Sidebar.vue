@@ -1,5 +1,5 @@
 <template>
-  <div class="sidebar" :class="{ collapsed: isCollapsed }">
+  <div class="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-title">{{ title }}</div>
       <button class="sidebar-toggle" @click="toggleCollapse">
@@ -32,27 +32,10 @@ const toggleCollapse = () => {
   flex-direction: column;
   background: #f7f9fa;
   border-right: 1px solid #e3e5e7;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   height: 100%;
   min-width: 200px;
   width: 260px;
-  overflow: hidden;
-}
-
-.sidebar.collapsed {
-  width: 0;
-  min-width: 0;
-  border-right: none;
-  opacity: 0;
-}
-
-.sidebar.collapsed .sidebar-content {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.sidebar.collapsed .sidebar-title {
-  opacity: 0;
+  flex-shrink: 0;
 }
 
 .sidebar-header {
