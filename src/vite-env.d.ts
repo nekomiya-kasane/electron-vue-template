@@ -8,7 +8,7 @@ declare module "*.vue" {
 }
 
 interface Window {
-  electronAPI: {
+  electronAPI?: {
     platform: string;
     versions: {
       node: string;
