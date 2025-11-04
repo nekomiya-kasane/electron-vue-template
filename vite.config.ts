@@ -16,18 +16,27 @@ const __dirname = path.dirname(__filename);
 
 // additional plugins
 // this plugin checks typescript and vue files
-import checker from "vite-plugin-checker"; 
+import checker from "vite-plugin-checker";
 // this plugin enables vue devtools
 import vueDevtools from "vite-plugin-vue-devtools";
 // this plugin allows inspecting vue component in the browser (by clicking the component or something)
 import inspector from "vite-plugin-vue-inspector";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // mode: 'development' | 'production'
   server: {
     port: 12543,
   },
   build: {
     sourcemap: true,
+    minify: mode === "production",
+    cssCodeSplit: true,
+    rollupOptions: {
+      output: {
+        compact: mode === "production",
+        comments: mode === "production" ? false : "all"
+      },
+    },
   },
   plugins: [
     vue({
@@ -57,8 +66,8 @@ export default defineConfig({
         trim: false,
       },
       features: {
-        customElement: true,
-        optionsAPI: false,
+        customElement: false,
+        optionsAPI: true,
       },
     }),
     electron([
@@ -70,9 +79,11 @@ export default defineConfig({
         vite: {
           build: {
             outDir: "dist-electron",
-            sourcemap: true, // 启用 source map
+            sourcemap: true,
+            minify: mode === "production" ? "esbuild" : false,
+            cssMinify: mode === "production" ? "esbuild" : false,
             rollupOptions: {
-              external: ["electron"],
+              external: ["electron"]
             },
             watch: {},
           },
@@ -86,7 +97,9 @@ export default defineConfig({
         vite: {
           build: {
             outDir: "dist-electron",
-            sourcemap: true, // 启用 source map
+            sourcemap: true,
+            minify: mode === "production" ? "esbuild" : false,
+            cssMinify: mode === "production" ? "esbuild" : false,
             watch: {},
           },
         },
@@ -118,4 +131,4 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
-});
+}));

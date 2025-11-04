@@ -25,5 +25,8 @@
   },
   "terminal.integrated.env.windows": {
     "PYTHONIOENCODING": "utf-8"
+  },
+  "[vue]": {
+    "editor.defaultFormatter": "Vue.volar"
   }
 }

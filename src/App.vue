@@ -1,12 +1,13 @@
 <template>
+  <TitleBar />
   <div class="app-container">
     <h1>Hello World!</h1>
     <p>Vue app is running successfully! 🎉</p>
   </div>
 </template>
 
-<script lang="ts" setup>
-
+<script setup lang="ts">
+import TitleBar from './components/layout/TitleBar.vue'
 </script>
 
 <style scoped>
@@ -15,8 +16,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  height: calc(100vh - 32px); /* 减去 TitleBar 的高度 */
   font-family: Arial, sans-serif;
+  background-color: #42b883;
 }
 
 h1 {
