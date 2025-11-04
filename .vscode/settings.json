@@ -1,12 +1,29 @@
 {
-    "editor.defaultFormatter": null,
-    "[typescript]": {
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
+  "editor.defaultFormatter": null,
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[html]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell": {
+      "source": "PowerShell",
+      "args": ["-NoExit", "-Command", "chcp 65001"]
     },
-    "[json]": {
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
-    },
-    "[html]": {
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "Command Prompt": {
+      "path": "${env:windir}\\System32\\cmd.exe",
+      "args": ["/K", "chcp 65001"]
     }
+  },
+  "terminal.integrated.env.windows": {
+    "PYTHONIOENCODING": "utf-8"
+  }
 }

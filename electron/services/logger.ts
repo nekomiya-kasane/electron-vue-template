@@ -1,6 +1,21 @@
 import log from "electron-log";
 import chalk from "chalk";
 
+// Set console encoding to UTF-8 on Windows to prevent garbled text
+if (process.platform === 'win32') {
+  try {
+    // Set code page to UTF-8 (65001)
+    if (process.stdout && typeof process.stdout.setEncoding === 'function') {
+      process.stdout.setEncoding('utf8');
+    }
+    if (process.stderr && typeof process.stderr.setEncoding === 'function') {
+      process.stderr.setEncoding('utf8');
+    }
+  } catch (error) {
+    console.error('Failed to set console encoding:', error);
+  }
+}
+
 log.transports.file.level = "info";
 log.transports.file.maxSize = 1024 * 1024 * 5;
 log.transports.console.level = "debug";

@@ -1,0 +1,85 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Electron: Main (Debug)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "windows": {
+        "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron.cmd"
+      },
+      "args": [".", "--remote-debugging-port=9223"],
+      "outputCapture": "std",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/dist-electron/**/*.js"
+      ],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "Electron: Renderer (Debug)",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9223,
+      "url": "http://localhost:12543",
+      "webRoot": "${workspaceFolder}/src",
+      "timeout": 30000,
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "/@fs/*": "/*",
+        "/src/*": "${webRoot}/*",
+        "webpack:///./*": "${webRoot}/*",
+        "webpack:///src/*": "${webRoot}/*"
+      },
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "trace": true
+    },
+    {
+      "name": "Electron: All (Debug)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "windows": {
+        "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron.cmd"
+      },
+      "args": [".", "--remote-debugging-port=9223"],
+      "outputCapture": "std",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/dist-electron/**/*.js"
+      ],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "serverReadyAction": {
+        "pattern": "listening on port ([0-9]+)",
+        "uriFormat": "http://localhost:%s",
+        "action": "debugWithChrome"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Electron: Main + Renderer",
+      "configurations": ["Electron: Main (Debug)", "Electron: Renderer (Debug)"],
+      "preLaunchTask": "npm: electron:dev",
+      "stopAll": true
+    }
+  ]
+}
