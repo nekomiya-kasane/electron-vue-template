@@ -18,7 +18,8 @@ export function createMainWindow() {
     maxHeight: config.window.main.maxHeight,
 
     show: false,
-    frame: true,
+    frame: false,
+    titleBarStyle: "hidden",
 
     webPreferences: {
       preload: path.join(fileURLToPath(import.meta.url), "../preload.js"),
@@ -32,6 +33,8 @@ export function createMainWindow() {
       // disable background throttling to prevent the app from being throttled when it is in the background
     },
   });
+
+  mainWindow.setMenu(null);
 
   // step 2: load the window context
   if (isDev) {
