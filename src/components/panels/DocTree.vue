@@ -53,5 +53,9 @@
 .tree-label {
   flex: 1;
   color: #202124;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 </style>

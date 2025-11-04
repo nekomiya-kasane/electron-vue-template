@@ -38,11 +38,45 @@ export interface SidebarConfig {
 }
 
 /**
- * 主区域视图配置
+ * 文档类型定义
+ */
+export interface DocumentType {
+  id: string
+  name: string
+  extensions?: string[] // 支持的文件扩展名
+  icon?: string
+}
+
+/**
+ * 文档实例
+ */
+export interface Document {
+  id: string
+  title: string
+  type: string // 文档类型 ID
+  content?: any
+  props?: Record<string, any>
+}
+
+/**
+ * 主区域视图配置（文档编辑器）
  */
 export interface MainViewConfig {
   id: string
   component: Component
+  supportedDocumentTypes: string[] // 支持的文档类型列表
+  props?: Record<string, any>
+}
+
+/**
+ * 状态栏项配置
+ */
+export interface StatusBarItem {
+  id: string
+  component?: Component
+  text?: string
+  position: 'left' | 'center' | 'right'
+  priority?: number // 数字越大优先级越高，显示越靠前
   props?: Record<string, any>
 }
 
@@ -65,17 +99,29 @@ export interface MenuConfig {
  * 插件上下文 - 提供给插件的 API
  */
 export interface PluginContext {
+  // 注册文档类型
+  registerDocumentType(type: DocumentType): void
+  
   // 注册图标栏按钮
-  registerIconButton(button: IconBarButton): void
+  registerIconButton(button: IconBarButton, documentTypes?: string[]): void
   
   // 注册侧边栏
-  registerSidebar(config: SidebarConfig): void
+  registerSidebar(config: SidebarConfig, documentTypes?: string[]): void
   
   // 注册主区域视图
   registerMainView(config: MainViewConfig): void
   
   // 注册菜单项
   registerMenu(config: MenuConfig): void
+  
+  // 注册状态栏项
+  registerStatusBarItem(item: StatusBarItem): void
+  
+  // 创建文档
+  createDocument(document: Document): void
+  
+  // 切换到文档
+  switchToDocument(documentId: string): void
   
   // 激活侧边栏
   activateSidebar(id: string, position: SidebarPosition): void

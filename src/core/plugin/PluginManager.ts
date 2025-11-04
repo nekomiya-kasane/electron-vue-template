@@ -9,7 +9,10 @@ import {
   type SidebarConfig,
   type MainViewConfig,
   type MenuConfig,
-  type SidebarPosition
+  type SidebarPosition,
+  type StatusBarItem,
+  type DocumentType,
+  type Document
 } from './types'
 
 /**
@@ -22,10 +25,14 @@ export class PluginManager {
 
   // 响应式状态
   public state = reactive({
-    iconButtons: [] as IconBarButton[],
-    sidebars: new Map<string, SidebarConfig>(),
+    documentTypes: new Map<string, DocumentType>(),
+    documents: new Map<string, Document>(),
+    activeDocumentId: null as string | null,
+    iconButtons: [] as (IconBarButton & { documentTypes?: string[] })[],
+    sidebars: new Map<string, SidebarConfig & { documentTypes?: string[] }>(),
     mainViews: new Map<string, MainViewConfig>(),
     menuSections: [] as MenuConfig['sections'],
+    statusBarItems: [] as StatusBarItem[],
     activeSidebars: {
       left: null as string | null,
       right: null as string | null
@@ -186,13 +193,27 @@ export class PluginManager {
    */
   private createContext(pluginId: string): PluginContext {
     return {
-      registerIconButton: (button: IconBarButton) => {
-        this.state.iconButtons.push({ ...button, id: `${pluginId}:${button.id}` })
+      registerDocumentType: (type: DocumentType) => {
+        this.state.documentTypes.set(type.id, type)
+        this.eventBus.emit('documentType:registered', type.id)
       },
 
-      registerSidebar: (config: SidebarConfig) => {
+      registerIconButton: (button: IconBarButton, documentTypes?: string[]) => {
+        this.state.iconButtons.push({ 
+          ...button, 
+          id: `${pluginId}:${button.id}`,
+          documentTypes 
+        })
+      },
+
+      registerSidebar: (config: SidebarConfig, documentTypes?: string[]) => {
         const id = `${pluginId}:${config.id}`
-        this.state.sidebars.set(id, { ...config, id, component: markRaw(config.component) })
+        this.state.sidebars.set(id, { 
+          ...config, 
+          id, 
+          component: markRaw(config.component),
+          documentTypes 
+        })
       },
 
       registerMainView: (config: MainViewConfig) => {
@@ -202,6 +223,37 @@ export class PluginManager {
 
       registerMenu: (config: MenuConfig) => {
         this.state.menuSections.push(...config.sections)
+      },
+
+      registerStatusBarItem: (item: StatusBarItem) => {
+        const fullItem = {
+          ...item,
+          id: `${pluginId}:${item.id}`,
+          component: item.component ? markRaw(item.component) : undefined,
+          priority: item.priority ?? 0
+        }
+        this.state.statusBarItems.push(fullItem)
+        // 按优先级和位置排序
+        this.state.statusBarItems.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+      },
+
+      createDocument: (document: Document) => {
+        this.state.documents.set(document.id, document)
+        this.eventBus.emit('document:created', document)
+      },
+
+      switchToDocument: (documentId: string) => {
+        const document = this.state.documents.get(documentId)
+        if (!document) {
+          console.warn(`[PluginManager] Document "${documentId}" not found`)
+          return
+        }
+        
+        this.state.activeDocumentId = documentId
+        this.eventBus.emit('document:switched', documentId, document)
+        
+        // 根据文档类型过滤和更新 UI
+        this.updateContextForDocument(document)
       },
 
       activateSidebar: (id: string, position: SidebarPosition) => {
@@ -274,12 +326,79 @@ export class PluginManager {
       }
     }
 
+    // 清理状态栏项
+    this.state.statusBarItems = this.state.statusBarItems.filter(
+      item => !item.id.startsWith(`${pluginId}:`)
+    )
+
     // 清理存储
     for (const [key] of this.storage) {
       if (key.startsWith(`${pluginId}:`)) {
         this.storage.delete(key)
       }
     }
+  }
+
+  /**
+   * 根据文档类型更新上下文
+   */
+  private updateContextForDocument(document: Document): void {
+    const documentType = document.type
+    
+    // 触发文档上下文切换事件
+    this.eventBus.emit('document:context-changed', documentType)
+    
+    console.log(`[PluginManager] Document context updated for type: ${documentType}`)
+  }
+
+  /**
+   * 获取当前文档支持的图标按钮
+   */
+  getVisibleIconButtons(): (IconBarButton & { documentTypes?: string[] })[] {
+    const activeDoc = this.state.activeDocumentId 
+      ? this.state.documents.get(this.state.activeDocumentId)
+      : null
+    
+    if (!activeDoc) {
+      // 没有活动文档时，显示所有没有文档类型限制的按钮
+      return this.state.iconButtons.filter(btn => !btn.documentTypes || btn.documentTypes.length === 0)
+    }
+    
+    // 显示支持当前文档类型的按钮
+    return this.state.iconButtons.filter(btn => 
+      !btn.documentTypes || 
+      btn.documentTypes.length === 0 || 
+      btn.documentTypes.includes(activeDoc.type)
+    )
+  }
+
+  /**
+   * 获取当前文档支持的侧边栏
+   */
+  getVisibleSidebars(): Map<string, SidebarConfig & { documentTypes?: string[] }> {
+    const activeDoc = this.state.activeDocumentId 
+      ? this.state.documents.get(this.state.activeDocumentId)
+      : null
+    
+    const visible = new Map<string, SidebarConfig & { documentTypes?: string[] }>()
+    
+    for (const [id, sidebar] of this.state.sidebars) {
+      if (!activeDoc) {
+        // 没有活动文档时，显示所有没有文档类型限制的侧边栏
+        if (!sidebar.documentTypes || sidebar.documentTypes.length === 0) {
+          visible.set(id, sidebar)
+        }
+      } else {
+        // 显示支持当前文档类型的侧边栏
+        if (!sidebar.documentTypes || 
+            sidebar.documentTypes.length === 0 || 
+            sidebar.documentTypes.includes(activeDoc.type)) {
+          visible.set(id, sidebar)
+        }
+      }
+    }
+    
+    return visible
   }
 
   /**

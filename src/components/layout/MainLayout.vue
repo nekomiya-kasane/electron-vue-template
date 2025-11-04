@@ -36,14 +36,14 @@
       />
 
       <!-- 左侧边栏 -->
-      <transition name="sidebar-width">
-        <Sidebar
-          v-if="activeLeftPanel"
-          :title="getLeftPanelTitle() || ''"
-        >
-          <component :is="getLeftPanelComponent()" />
-        </Sidebar>
-      </transition>
+      <Sidebar
+        v-if="activeLeftPanel"
+        :title="getLeftPanelTitle() || ''"
+        :sidebar-id="activeLeftPanel"
+        position="left"
+      >
+        <component :is="getLeftPanelComponent()" />
+      </Sidebar>
 
       <!-- 中间主区域 -->
       <div class="main-area">
@@ -59,14 +59,14 @@
       </div>
 
       <!-- 右侧边栏 -->
-      <transition name="sidebar-width">
-        <Sidebar
-          v-if="activeRightPanel"
-          :title="getRightPanelTitle() || ''"
-        >
-          <component :is="getRightPanelComponent()" />
-        </Sidebar>
-      </transition>
+      <Sidebar
+        v-if="activeRightPanel"
+        :title="getRightPanelTitle() || ''"
+        :sidebar-id="activeRightPanel"
+        position="right"
+      >
+        <component :is="getRightPanelComponent()" />
+      </Sidebar>
 
       <!-- 右侧图标栏 -->
       <IconBar
@@ -76,6 +76,9 @@
         @select="toggleRightPanel"
       />
     </div>
+
+    <!-- 底部状态栏 -->
+    <StatusBar :items="state.statusBarItems" />
 
     <!-- 应用菜单 -->
     <AppMenu
@@ -94,6 +97,7 @@ import Sidebar from './Sidebar.vue'
 import IconBar from './IconBar.vue'
 import TabBar, { type Tab } from './TabBar.vue'
 import AppMenu from './AppMenu.vue'
+import StatusBar from './StatusBar.vue'
 import { pluginManager } from '@/core/plugin'
 
 // 从插件管理器获取状态
@@ -130,14 +134,16 @@ const addTab = () => {
   activeTabId.value = newId
 }
 
-// 图标栏按钮 - 从插件系统获取
-const leftIconBarItems = computed(() => 
-  state.iconButtons.filter(btn => btn.position === 'left')
-)
+// 图标栏按钮 - 从插件系统获取，根据当前文档类型过滤
+const leftIconBarItems = computed(() => {
+  const visible = pluginManager.getVisibleIconButtons()
+  return visible.filter(btn => btn.position === 'left')
+})
 
-const rightIconBarItems = computed(() => 
-  state.iconButtons.filter(btn => btn.position === 'right')
-)
+const rightIconBarItems = computed(() => {
+  const visible = pluginManager.getVisibleIconButtons()
+  return visible.filter(btn => btn.position === 'right')
+})
 
 // 侧边栏管理
 const activeLeftPanel = computed(() => state.activeSidebars.left)
@@ -171,22 +177,26 @@ const toggleRightPanel = (id: string) => {
 
 const getLeftPanelTitle = () => {
   if (!state.activeSidebars.left) return ''
-  return state.sidebars.get(state.activeSidebars.left)?.title || ''
+  const visibleSidebars = pluginManager.getVisibleSidebars()
+  return visibleSidebars.get(state.activeSidebars.left)?.title || ''
 }
 
 const getRightPanelTitle = () => {
   if (!state.activeSidebars.right) return ''
-  return state.sidebars.get(state.activeSidebars.right)?.title || ''
+  const visibleSidebars = pluginManager.getVisibleSidebars()
+  return visibleSidebars.get(state.activeSidebars.right)?.title || ''
 }
 
 const getLeftPanelComponent = () => {
   if (!state.activeSidebars.left) return null
-  return state.sidebars.get(state.activeSidebars.left)?.component || null
+  const visibleSidebars = pluginManager.getVisibleSidebars()
+  return visibleSidebars.get(state.activeSidebars.left)?.component || null
 }
 
 const getRightPanelComponent = () => {
   if (!state.activeSidebars.right) return null
-  return state.sidebars.get(state.activeSidebars.right)?.component || null
+  const visibleSidebars = pluginManager.getVisibleSidebars()
+  return visibleSidebars.get(state.activeSidebars.right)?.component || null
 }
 
 // 主视图管理
@@ -331,26 +341,5 @@ const closeWindow = () => {
 
 .empty-text {
   font-size: 16px;
-}
-
-/* 侧边栏宽度动画 */
-.sidebar-width-enter-active,
-.sidebar-width-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-}
-
-.sidebar-width-enter-from,
-.sidebar-width-leave-to {
-  width: 0;
-  min-width: 0;
-  opacity: 0;
-}
-
-.sidebar-width-enter-to,
-.sidebar-width-leave-from {
-  width: 260px;
-  min-width: 200px;
-  opacity: 1;
 }
 </style>
