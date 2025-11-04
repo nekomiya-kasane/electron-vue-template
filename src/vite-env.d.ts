@@ -15,5 +15,11 @@ interface Window {
       chrome: string;
       electron: string;
     };
+    window: {
+      minimize: () => Promise<void>;
+      maximize: () => Promise<void>;
+      close: () => Promise<void>;
+      isMaximized: () => Promise<boolean>;
+    };
   };
 }
