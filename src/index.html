@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- todo: support PWA -->
+
+    <!-- CSP -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; media-src 'self'; object-src 'none';"
+    />
+
+    <title>Test App</title>
+
+    <style>
+      #app {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      /* for loading screen */
+      .app-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100vh;
+        background-color: #ffffff;
+      }
+
+      .app-loading.dark {
+        background-color: #1e1e1e;
+      }
+
+      .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #409eff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* to prevent the app from being selected */
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      .selectable {
+        -webkit-user-select: text;
+        user-select: text;
+      }
+
+      /* custom beautiful scroll bar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 5px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      const platform = {
+        isElectron: !!(
+          window.electron ||
+          (window.process && window.process.type)
+        ),
+        isCapacitor: !!window.Capacitor,
+        isCordova: !!window.cordova,
+        isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
+        isAndroid: /Android/.test(navigator.userAgent),
+        isMobile:
+          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+            navigator.userAgent
+          ),
+        isWeb: true,
+      };
+
+      // prevent F5 and Ctrl + R to prevent the app from being refreshed
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "F5" || (e.ctrlKey && e.key === "r")) {
+          e.preventDefault();
+        }
+      });
+
+      // prevent mis-dragging files into the app
+      document.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "none";
+      });
+
+      document.addEventListener("drop", (e) => {
+        e.preventDefault();
+      });
+    </script>
+
+    <!-- entrance point for vite -->
+    <!-- this is necessary as it creates the vue app and mounts it to the dom with id "app" -->
+    <script type="module" src="/src/main.ts"></script>
+
+    <!-- Vue app container -->
+    <div id="app">
+      <!-- loading screen should be loaded before the app is ready -->
+      <div class="app-loading" id="loading">
+        <div class="loading-spinner"></div>
+      </div>
+    </div>
+  </body>
+</html>
