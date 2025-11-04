@@ -15,10 +15,16 @@ app.whenReady().then(() => {
   // step 2: setup ipc endpoints for the frontend
   setupIpcEndpoints();
 
-  // step 3: define app events
-  //    when app is activated, create the main window or focus on it if it already exists
+  // step 3: create main window on app ready
+  logger.info("app ready, creating main window");
+  windowManager.createMainWindow();
+});
+
+// handle activate event (mainly for macOS)
+// when app is activated, create the main window or focus on it if it already exists
+// on Windows/Linux, this event is never triggered
   app.on("activate", () => {
-    logger.info("app ready");
+  logger.info("app activated");
 
     if (BrowserWindow.getAllWindows().length === 0) {
       windowManager.createMainWindow();
@@ -26,7 +32,6 @@ app.whenReady().then(() => {
       windowManager.getMainWindow()?.focus();
     }
   });
-});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
