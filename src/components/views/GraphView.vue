@@ -1,25 +1,57 @@
 <template>
   <div class="graph-view">
-    <canvas 
-      ref="canvasRef" 
-      class="graph-canvas"
-      @mousedown="handleMouseDown"
-      @mousemove="handleMouseMove"
-      @mouseup="handleMouseUp"
-      @wheel="handleWheel"
-    ></canvas>
-    <div class="graph-controls">
-      <button @click="resetView" class="control-btn" title="重置视图和缩放">🔄 重置</button>
-      <button @click="zoomIn" class="control-btn" title="放大">🔍+ 放大</button>
-      <button @click="zoomOut" class="control-btn" title="缩小">🔍- 缩小</button>
-      <button @click="autoLayout" class="control-btn" title="自动布局">📐 布局</button>
-      <button @click="clearGraph" class="control-btn" title="清空图">🗑️ 清空</button>
+    <canvas ref="gridCanvas" class="grid-canvas"></canvas>
+    <div ref="cyContainer" class="cy-container"></div>
+    <!-- 悬浮工具栏 -->
+    <div class="floating-toolbar">
+      <div class="toolbar-section">
+        <button @click="resetView" class="toolbar-btn" title="重置视图">
+          <span class="icon">🔄</span>
+        </button>
+        <button @click="zoomIn" class="toolbar-btn" title="放大">
+          <span class="icon">🔍+</span>
+        </button>
+        <button @click="zoomOut" class="toolbar-btn" title="缩小">
+          <span class="icon">🔍-</span>
+        </button>
+        <button @click="fitView" class="toolbar-btn" title="适应视图">
+          <span class="icon">📏</span>
+        </button>
+      </div>
+      
+      <div class="toolbar-divider"></div>
+      
+      <div class="toolbar-section">
+        <select v-model="selectedLayout" @change="applyLayout" class="toolbar-select" title="选择布局">
+          <option value="dagre">📊 层次</option>
+          <option value="circle">⭕ 圆形</option>
+          <option value="cola">🧲 力导向</option>
+          <option value="grid">🔲 网格</option>
+          <option value="concentric">🎯 同心圆</option>
+          <option value="breadthfirst">🌳 BFS</option>
+          <option value="cose">🌀 CoSE</option>
+        </select>
+        <button @click="undoLayout" :disabled="!canUndo" class="toolbar-btn" title="撤销布局">
+          <span class="icon">↩️</span>
+        </button>
+        <button @click="redoLayout" :disabled="!canRedo" class="toolbar-btn" title="重做布局">
+          <span class="icon">↪️</span>
+        </button>
+      </div>
+      
+      <div class="toolbar-divider"></div>
+      
+      <div class="toolbar-section">
+        <button @click="clearGraph" class="toolbar-btn" title="清空图">
+          <span class="icon">🗑️</span>
+        </button>
+      </div>
     </div>
     <div class="graph-stats">
-      <div>节点: {{ nodes.length }}</div>
-      <div>边: {{ edges.length }}</div>
-      <div>缩放: {{ (viewScale * 100).toFixed(0) }}%</div>
-      <div v-if="selectedNode">选中: {{ selectedNode.id }}</div>
+      <div>节点: {{ nodeCount }}</div>
+      <div>边: {{ edgeCount }}</div>
+      <div>缩放: {{ zoomLevel }}%</div>
+      <div v-if="selectedNodeId">选中: {{ selectedNodeId }}</div>
     </div>
   </div>
 </template>
@@ -27,556 +59,708 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { pluginManager } from '@/core/plugin'
+import cytoscape, { type Core } from 'cytoscape'
+// @ts-ignore
+import dagre from 'cytoscape-dagre'
+// @ts-ignore
+import cola from 'cytoscape-cola'
 
-interface GraphNode {
-  id: string
-  label: string
-  x: number
-  y: number
-  vx: number
-  vy: number
-  color: string
-  highlighted: boolean
-  tempHighlighted: boolean
-  radius: number
-}
-
-interface GraphEdge {
-  id: string
-  source: string
-  target: string
-  label?: string
-  color: string
-  highlighted: boolean
-}
+// 注册布局插件
+cytoscape.use(dagre)
+cytoscape.use(cola)
 
 defineProps<{
   initialData?: any
 }>()
 
-const canvasRef = ref<HTMLCanvasElement | null>(null)
-const nodes = ref<GraphNode[]>([])
-const edges = ref<GraphEdge[]>([])
-const selectedNode = ref<GraphNode | null>(null)
+const cyContainer = ref<HTMLDivElement | null>(null)
+const gridCanvas = ref<HTMLCanvasElement | null>(null)
+let cy: Core | null = null
+let gridCtx: CanvasRenderingContext2D | null = null
 
-// 视图状态
-const viewOffset = ref({ x: 100, y: 300 })
-const viewScale = ref(1)
-const isDragging = ref(false)
-const dragStart = ref({ x: 0, y: 0 })
-const draggedNode = ref<GraphNode | null>(null)
+// 状态
+const nodeCount = ref(0)
+const edgeCount = ref(0)
+const zoomLevel = ref(100)
+const selectedNodeId = ref<string | null>(null)
+const selectedLayout = ref('dagre')
 
-// 动画
-let animationFrameId: number | null = null
-let ctx: CanvasRenderingContext2D | null = null
+// 布局历史记录
+interface LayoutSnapshot {
+  positions: { [key: string]: { x: number; y: number } }
+  layout: string
+  timestamp: number
+}
 
-// 初始化画布
-function initCanvas() {
-  const canvas = canvasRef.value
-  if (!canvas) return
+const layoutHistory = ref<LayoutSnapshot[]>([])
+const historyIndex = ref(-1)
+const canUndo = ref(false)
+const canRedo = ref(false)
 
-  ctx = canvas.getContext('2d')
-  if (!ctx) return
+// 初始化 Cytoscape
+function initCytoscape() {
+  if (!cyContainer.value) return
 
-  resizeCanvas()
-  window.addEventListener('resize', resizeCanvas)
+  cy = cytoscape({
+    container: cyContainer.value,
+    
+    style: [
+      // 节点样式
+      {
+        selector: 'node',
+        style: {
+          'background-color': 'data(color)',
+          'label': 'data(label)',
+          'width': 60,
+          'height': 60,
+          'font-size': 14,
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'color': '#202124',
+          'text-outline-width': 2,
+          'text-outline-color': '#fff',
+          'border-width': 2,
+          'border-color': '#e3e5e7'
+        }
+      },
+      // 选中节点
+      {
+        selector: 'node:selected',
+        style: {
+          'border-width': 4,
+          'border-color': '#4a9eff',
+          'background-color': '#e3f2fd'
+        }
+      },
+      // 高亮节点
+      {
+        selector: 'node.highlighted',
+        style: {
+          'border-width': 4,
+          'border-color': '#FFD700'
+        } as any
+      },
+      // 临时高亮节点
+      {
+        selector: 'node.temp-highlighted',
+        style: {
+          'background-color': '#FFF9C4'
+        } as any
+      },
+      // 边样式
+      {
+        selector: 'edge',
+        style: {
+          'width': 3,
+          'line-color': 'data(color)',
+          'target-arrow-color': 'data(color)',
+          'target-arrow-shape': 'triangle',
+          'curve-style': 'bezier',
+          'label': 'data(label)',
+          'font-size': 12,
+          'text-rotation': 'autorotate',
+          'text-margin-y': -10,
+          'color': '#5f6368',
+          'text-background-color': '#fff',
+          'text-background-opacity': 0.9,
+          'text-background-padding': '3px',
+          'text-border-width': 1,
+          'text-border-color': '#e3e5e7',
+          'text-border-opacity': 1
+        }
+      },
+      // 高亮边
+      {
+        selector: 'edge.highlighted',
+        style: {
+          'width': 5,
+          'line-color': '#FFD700',
+          'target-arrow-color': '#FFD700'
+        }
+      }
+    ],
+
+    elements: [],
+    
+    layout: {
+      name: 'dagre'
+    } as any,
+
+    // 交互设置
+    minZoom: 0.1,
+    maxZoom: 3,
+    wheelSensitivity: 0.5  // 增加滚轮灵敏度
+  })
+
+  // 事件监听
+  cy.on('select', 'node', (evt) => {
+    const node = evt.target
+    selectedNodeId.value = node.id()
+    pluginManager.getEventBus().emit('graph:nodeSelected', node.id())
+  })
+
+  cy.on('unselect', 'node', () => {
+    selectedNodeId.value = null
+  })
+
+  cy.on('tap', 'node', (evt) => {
+    const node = evt.target
+    pluginManager.getEventBus().emit('graph:nodeTapped', node.id())
+  })
+
+  cy.on('zoom', () => {
+    updateZoomLevel()
+    drawGrid()
+  })
+
+  cy.on('pan', () => {
+    drawGrid()
+  })
+
+  // 更新统计
+  updateStats()
+
+  // 初始化网格
+  initGrid()
 
   // 创建示例图
   createSampleGraph()
-
-  // 开始渲染循环
-  render()
+  
+  // 保存初始布局
+  saveLayoutSnapshot('dagre')
 }
 
-// 调整画布大小
-function resizeCanvas() {
-  const canvas = canvasRef.value
-  if (!canvas) return
-
-  const rect = canvas.getBoundingClientRect()
-  canvas.width = rect.width * devicePixelRatio
-  canvas.height = rect.height * devicePixelRatio
+// 初始化网格
+function initGrid() {
+  if (!gridCanvas.value) return
   
-  if (ctx) {
-    ctx.scale(devicePixelRatio, devicePixelRatio)
+  const canvas = gridCanvas.value
+  const dpr = window.devicePixelRatio || 1
+  
+  // 设置画布大小
+  const rect = canvas.getBoundingClientRect()
+  canvas.width = rect.width * dpr
+  canvas.height = rect.height * dpr
+  
+  gridCtx = canvas.getContext('2d')
+  if (gridCtx) {
+    gridCtx.scale(dpr, dpr)
   }
+  
+  // 监听窗口大小变化
+  window.addEventListener('resize', () => {
+    if (!gridCanvas.value || !gridCtx) return
+    const rect = gridCanvas.value.getBoundingClientRect()
+    gridCanvas.value.width = rect.width * dpr
+    gridCanvas.value.height = rect.height * dpr
+    gridCtx.scale(dpr, dpr)
+    drawGrid()
+  })
+  
+  drawGrid()
+}
+
+// 绘制网格和坐标标尺
+function drawGrid() {
+  if (!gridCanvas.value || !gridCtx || !cy) return
+  
+  const canvas = gridCanvas.value
+  const ctx = gridCtx
+  const rect = canvas.getBoundingClientRect()
+  const width = rect.width
+  const height = rect.height
+  
+  // 清空画布
+  ctx.clearRect(0, 0, width, height)
+  
+  // 获取 Cytoscape 的平移和缩放
+  const pan = cy.pan()
+  const zoom = cy.zoom()
+  
+  // 网格大小（根据缩放调整）
+  const baseGridSize = 50
+  const gridSize = baseGridSize * zoom
+  
+  // 计算网格起始位置
+  const offsetX = pan.x % gridSize
+  const offsetY = pan.y % gridSize
+  
+  // 绘制网格线
+  ctx.strokeStyle = '#f0f0f0'
+  ctx.lineWidth = 1
+  
+  // 垂直线
+  for (let x = offsetX; x < width; x += gridSize) {
+    ctx.beginPath()
+    ctx.moveTo(x, 0)
+    ctx.lineTo(x, height)
+    ctx.stroke()
+  }
+  
+  // 水平线
+  for (let y = offsetY; y < height; y += gridSize) {
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(width, y)
+    ctx.stroke()
+  }
+  
+  // 绘制坐标轴（原点位置）
+  const originX = pan.x
+  const originY = pan.y
+  
+  // X 轴（红色）
+  if (originY >= 0 && originY <= height) {
+    ctx.strokeStyle = '#ff6b6b'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(0, originY)
+    ctx.lineTo(width, originY)
+    ctx.stroke()
+    
+    // X 轴标尺刻度
+    ctx.fillStyle = '#ff6b6b'
+    ctx.font = '10px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    
+    const xStep = baseGridSize * zoom
+    for (let x = originX; x < width; x += xStep) {
+      if (x > 0) {
+        const value = Math.round((x - originX) / zoom)
+        ctx.fillText(value.toString(), x, originY + 4)
+        // 刻度线
+        ctx.beginPath()
+        ctx.moveTo(x, originY - 3)
+        ctx.lineTo(x, originY + 3)
+        ctx.stroke()
+      }
+    }
+    for (let x = originX - xStep; x > 0; x -= xStep) {
+      const value = Math.round((x - originX) / zoom)
+      ctx.fillText(value.toString(), x, originY + 4)
+      // 刻度线
+      ctx.beginPath()
+      ctx.moveTo(x, originY - 3)
+      ctx.lineTo(x, originY + 3)
+      ctx.stroke()
+    }
+  }
+  
+  // Y 轴（绿色）
+  if (originX >= 0 && originX <= width) {
+    ctx.strokeStyle = '#51cf66'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(originX, 0)
+    ctx.lineTo(originX, height)
+    ctx.stroke()
+    
+    // Y 轴标尺刻度
+    ctx.fillStyle = '#51cf66'
+    ctx.font = '10px sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    
+    const yStep = baseGridSize * zoom
+    for (let y = originY; y < height; y += yStep) {
+      if (y > 0) {
+        const value = Math.round((originY - y) / zoom)
+        ctx.fillText(value.toString(), originX + 4, y)
+        // 刻度线
+        ctx.beginPath()
+        ctx.moveTo(originX - 3, y)
+        ctx.lineTo(originX + 3, y)
+        ctx.stroke()
+      }
+    }
+    for (let y = originY - yStep; y > 0; y -= yStep) {
+      const value = Math.round((originY - y) / zoom)
+      ctx.fillText(value.toString(), originX + 4, y)
+      // 刻度线
+      ctx.beginPath()
+      ctx.moveTo(originX - 3, y)
+      ctx.lineTo(originX + 3, y)
+      ctx.stroke()
+    }
+  }
+  
+  // 原点标记
+  if (originX >= 0 && originX <= width && originY >= 0 && originY <= height) {
+    ctx.fillStyle = '#868e96'
+    ctx.beginPath()
+    ctx.arc(originX, originY, 4, 0, Math.PI * 2)
+    ctx.fill()
+    
+    // 原点标签
+    ctx.fillStyle = '#868e96'
+    ctx.font = 'bold 12px sans-serif'
+    ctx.textAlign = 'right'
+    ctx.textBaseline = 'bottom'
+    ctx.fillText('O (0,0)', originX - 8, originY - 8)
+  }
+}
+
+// 更新统计信息
+function updateStats() {
+  if (!cy) return
+  nodeCount.value = cy.nodes().length
+  edgeCount.value = cy.edges().length
+}
+
+// 更新缩放级别
+function updateZoomLevel() {
+  if (!cy) return
+  zoomLevel.value = Math.round(cy.zoom() * 100)
 }
 
 // 创建示例图
 function createSampleGraph() {
-  nodes.value = [
-    { id: 'A', label: 'Node A', x: 100, y: -100, vx: 0, vy: 0, color: '#4CAF50', highlighted: false, tempHighlighted: false, radius: 30 },
-    { id: 'B', label: 'Node B', x: 300, y: -100, vx: 0, vy: 0, color: '#2196F3', highlighted: false, tempHighlighted: false, radius: 30 },
-    { id: 'C', label: 'Node C', x: 200, y: 50, vx: 0, vy: 0, color: '#FF9800', highlighted: false, tempHighlighted: false, radius: 30 },
-  ]
+  if (!cy) return
 
-  edges.value = [
-    { id: 'AB', source: 'A', target: 'B', label: 'edge 1', color: '#666', highlighted: false },
-    { id: 'BC', source: 'B', target: 'C', label: 'edge 2', color: '#666', highlighted: false },
-    { id: 'CA', source: 'C', target: 'A', label: 'edge 3', color: '#666', highlighted: false },
-  ]
-}
-
-// 渲染循环
-function render() {
-  if (!ctx || !canvasRef.value) return
-
-  const canvas = canvasRef.value
-  const width = canvas.width / devicePixelRatio
-  const height = canvas.height / devicePixelRatio
-
-  // 清空画布
-  ctx.clearRect(0, 0, width, height)
-
-  // 绘制网格（最底层）
-  drawGrid(ctx, width, height)
-
-  // 应用变换
-  ctx.save()
-  ctx.translate(viewOffset.value.x, viewOffset.value.y)
-  ctx.scale(viewScale.value, viewScale.value)
-
-  // 绘制坐标轴
-  drawAxes(ctx!)
-
-  // 绘制边
-  edges.value.forEach(edge => {
-    const sourceNode = nodes.value.find(n => n.id === edge.source)
-    const targetNode = nodes.value.find(n => n.id === edge.target)
-    if (!sourceNode || !targetNode) return
-
-    drawEdge(ctx!, sourceNode, targetNode, edge)
-  })
-
-  // 绘制节点
-  nodes.value.forEach(node => {
-    drawNode(ctx!, node)
-  })
-
-  ctx.restore()
-
-  animationFrameId = requestAnimationFrame(render)
-}
-
-// 绘制网格
-function drawGrid(context: CanvasRenderingContext2D, width: number, height: number) {
-  context.save()
-  context.strokeStyle = '#f0f0f0'
-  context.lineWidth = 1
-
-  const gridSize = 50 * viewScale.value
-  const offsetX = viewOffset.value.x % gridSize
-  const offsetY = viewOffset.value.y % gridSize
-
-  // 垂直线
-  for (let x = offsetX; x < width; x += gridSize) {
-    context.beginPath()
-    context.moveTo(x, 0)
-    context.lineTo(x, height)
-    context.stroke()
-  }
-
-  // 水平线
-  for (let y = offsetY; y < height; y += gridSize) {
-    context.beginPath()
-    context.moveTo(0, y)
-    context.lineTo(width, y)
-    context.stroke()
-  }
-
-  context.restore()
-}
-
-// 绘制坐标轴
-function drawAxes(context: CanvasRenderingContext2D) {
-  context.save()
-  
-  // X 轴（红色）
-  context.strokeStyle = '#ff6b6b'
-  context.lineWidth = 2
-  context.beginPath()
-  context.moveTo(0, 0)
-  context.lineTo(500, 0)
-  context.stroke()
-  
-  // X 轴箭头
-  context.fillStyle = '#ff6b6b'
-  context.beginPath()
-  context.moveTo(500, 0)
-  context.lineTo(490, -5)
-  context.lineTo(490, 5)
-  context.closePath()
-  context.fill()
-  
-  // X 轴标签
-  context.fillStyle = '#ff6b6b'
-  context.font = 'bold 14px sans-serif'
-  context.textAlign = 'left'
-  context.textBaseline = 'top'
-  context.fillText('X', 510, -10)
-  
-  // Y 轴（绿色）
-  context.strokeStyle = '#51cf66'
-  context.lineWidth = 2
-  context.beginPath()
-  context.moveTo(0, 0)
-  context.lineTo(0, -500)
-  context.stroke()
-  
-  // Y 轴箭头
-  context.fillStyle = '#51cf66'
-  context.beginPath()
-  context.moveTo(0, -500)
-  context.lineTo(-5, -490)
-  context.lineTo(5, -490)
-  context.closePath()
-  context.fill()
-  
-  // Y 轴标签
-  context.fillStyle = '#51cf66'
-  context.font = 'bold 14px sans-serif'
-  context.textAlign = 'left'
-  context.textBaseline = 'bottom'
-  context.fillText('Y', 5, -510)
-  
-  // 原点标记
-  context.fillStyle = '#868e96'
-  context.beginPath()
-  context.arc(0, 0, 4, 0, Math.PI * 2)
-  context.fill()
-  
-  // 原点标签
-  context.fillStyle = '#868e96'
-  context.font = '12px sans-serif'
-  context.textAlign = 'right'
-  context.textBaseline = 'top'
-  context.fillText('O', -8, 8)
-  
-  context.restore()
-}
-
-// 绘制节点
-function drawNode(context: CanvasRenderingContext2D, node: GraphNode) {
-  // 高亮光晕
-  if (node.highlighted || node.tempHighlighted) {
-    context.save()
-    const gradient = context.createRadialGradient(node.x, node.y, node.radius, node.x, node.y, node.radius + 10)
-    gradient.addColorStop(0, node.tempHighlighted ? 'rgba(255, 255, 0, 0.5)' : 'rgba(255, 255, 255, 0.5)')
-    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
-    context.fillStyle = gradient
-    context.beginPath()
-    context.arc(node.x, node.y, node.radius + 10, 0, Math.PI * 2)
-    context.fill()
-    context.restore()
-  }
-
-  // 节点圆形
-  context.save()
-  context.fillStyle = node.color
-  context.strokeStyle = node.highlighted ? '#FFD700' : '#fff'
-  context.lineWidth = node.highlighted ? 4 : 2
-  context.beginPath()
-  context.arc(node.x, node.y, node.radius, 0, Math.PI * 2)
-  context.fill()
-  context.stroke()
-  context.restore()
-
-  // 节点标签
-  context.save()
-  context.fillStyle = '#fff'
-  context.font = 'bold 14px sans-serif'
-  context.textAlign = 'center'
-  context.textBaseline = 'middle'
-  context.fillText(node.label, node.x, node.y)
-  context.restore()
-}
-
-// 绘制边（带箭头）
-function drawEdge(context: CanvasRenderingContext2D, source: GraphNode, target: GraphNode, edge: GraphEdge) {
-  const dx = target.x - source.x
-  const dy = target.y - source.y
-  const angle = Math.atan2(dy, dx)
-
-  // 计算起点和终点（考虑节点半径）
-  const startX = source.x + Math.cos(angle) * source.radius
-  const startY = source.y + Math.sin(angle) * source.radius
-  const endX = target.x - Math.cos(angle) * target.radius
-  const endY = target.y - Math.sin(angle) * target.radius
-
-  context.save()
-  context.strokeStyle = edge.highlighted ? '#FFD700' : edge.color
-  context.lineWidth = edge.highlighted ? 3 : 2
-  context.fillStyle = edge.highlighted ? '#FFD700' : edge.color
-
-  // 绘制线
-  context.beginPath()
-  context.moveTo(startX, startY)
-  context.lineTo(endX, endY)
-  context.stroke()
-
-  // 绘制箭头
-  const arrowSize = 10
-  context.beginPath()
-  context.moveTo(endX, endY)
-  context.lineTo(
-    endX - arrowSize * Math.cos(angle - Math.PI / 6),
-    endY - arrowSize * Math.sin(angle - Math.PI / 6)
-  )
-  context.lineTo(
-    endX - arrowSize * Math.cos(angle + Math.PI / 6),
-    endY - arrowSize * Math.sin(angle + Math.PI / 6)
-  )
-  context.closePath()
-  context.fill()
-
-  // 绘制边标签
-  if (edge.label) {
-    const midX = (startX + endX) / 2
-    const midY = (startY + endY) / 2
-    context.fillStyle = '#fff'
-    context.font = '12px sans-serif'
-    context.textAlign = 'center'
-    context.textBaseline = 'middle'
+  cy.add([
+    // 节点
+    { data: { id: 'A', label: 'Node A', color: '#4CAF50' } },
+    { data: { id: 'B', label: 'Node B', color: '#2196F3' } },
+    { data: { id: 'C', label: 'Node C', color: '#FF9800' } },
     
-    // 背景
-    const metrics = context.measureText(edge.label)
-    context.fillStyle = 'rgba(255, 255, 255, 0.95)'
-    context.strokeStyle = '#e3e5e7'
-    context.lineWidth = 1
-    context.strokeRect(midX - metrics.width / 2 - 4, midY - 8, metrics.width + 8, 16)
-    context.fillRect(midX - metrics.width / 2 - 4, midY - 8, metrics.width + 8, 16)
-    
-    context.fillStyle = '#202124'
-    context.fillText(edge.label, midX, midY)
-  }
+    // 边
+    { data: { id: 'AB', source: 'A', target: 'B', label: 'edge 1', color: '#666' } },
+    { data: { id: 'BC', source: 'B', target: 'C', label: 'edge 2', color: '#666' } },
+    { data: { id: 'CA', source: 'C', target: 'A', label: 'edge 3', color: '#666' } }
+  ])
 
-  context.restore()
-}
-
-// 鼠标事件处理
-function handleMouseDown(e: MouseEvent) {
-  const rect = canvasRef.value?.getBoundingClientRect()
-  if (!rect) return
-
-  const x = (e.clientX - rect.left - viewOffset.value.x) / viewScale.value
-  const y = (e.clientY - rect.top - viewOffset.value.y) / viewScale.value
-
-  // 检查是否点击了节点
-  const clickedNode = nodes.value.find(node => {
-    const dx = x - node.x
-    const dy = y - node.y
-    return Math.sqrt(dx * dx + dy * dy) <= node.radius
-  })
-
-  if (clickedNode) {
-    draggedNode.value = clickedNode
-    selectedNode.value = clickedNode
-    dragStart.value = { x: e.clientX, y: e.clientY }
-  } else {
-    isDragging.value = true
-    dragStart.value = { x: e.clientX, y: e.clientY }
-    selectedNode.value = null
-  }
-}
-
-function handleMouseMove(e: MouseEvent) {
-  const rect = canvasRef.value?.getBoundingClientRect()
-  if (!rect) return
-
-  if (draggedNode.value) {
-    // 拖动节点
-    const dx = (e.clientX - dragStart.value.x) / viewScale.value
-    const dy = (e.clientY - dragStart.value.y) / viewScale.value
-    draggedNode.value.x += dx
-    draggedNode.value.y += dy
-    dragStart.value = { x: e.clientX, y: e.clientY }
-  } else if (isDragging.value) {
-    // 拖动视图
-    const dx = e.clientX - dragStart.value.x
-    const dy = e.clientY - dragStart.value.y
-    viewOffset.value.x += dx
-    viewOffset.value.y += dy
-    dragStart.value = { x: e.clientX, y: e.clientY }
-  } else {
-    // 悬停高亮
-    const x = (e.clientX - rect.left - viewOffset.value.x) / viewScale.value
-    const y = (e.clientY - rect.top - viewOffset.value.y) / viewScale.value
-
-    nodes.value.forEach(node => {
-      const dx = x - node.x
-      const dy = y - node.y
-      node.tempHighlighted = Math.sqrt(dx * dx + dy * dy) <= node.radius
-    })
-  }
-}
-
-function handleMouseUp() {
-  isDragging.value = false
-  draggedNode.value = null
-}
-
-function handleWheel(e: WheelEvent) {
-  e.preventDefault()
-  const delta = e.deltaY * -0.001
-  viewScale.value = Math.max(0.1, Math.min(3, viewScale.value + delta))
+  // 应用布局
+  const layout: any = { name: 'dagre', rankDir: 'TB', nodeSep: 50, rankSep: 100 }
+  cy.layout(layout).run()
+  
+  updateStats()
 }
 
 // 控制函数
 function resetView() {
-  viewOffset.value = { x: 100, y: 300 }
-  viewScale.value = 1
+  if (!cy) return
+  cy.reset()
+  cy.fit()
+  updateZoomLevel()
 }
 
 function zoomIn() {
-  viewScale.value = Math.min(3, viewScale.value + 0.1)
+  if (!cy) return
+  cy.zoom(cy.zoom() * 1.2)
+  cy.center()
+  updateZoomLevel()
 }
 
 function zoomOut() {
-  viewScale.value = Math.max(0.1, viewScale.value - 0.1)
+  if (!cy) return
+  cy.zoom(cy.zoom() * 0.8)
+  cy.center()
+  updateZoomLevel()
 }
 
-function autoLayout() {
-  // 简单的力导向布局
-  const canvas = canvasRef.value
-  if (!canvas) return
+function fitView() {
+  if (!cy) return
+  cy.fit(undefined, 50)
+  updateZoomLevel()
+}
 
-  const centerX = canvas.width / devicePixelRatio / 2
-  const centerY = canvas.height / devicePixelRatio / 2
-  const radius = 150
-
-  nodes.value.forEach((node, index) => {
-    const angle = (index / nodes.value.length) * Math.PI * 2
-    node.x = centerX + Math.cos(angle) * radius
-    node.y = centerY + Math.sin(angle) * radius
+// 保存布局快照
+function saveLayoutSnapshot(layoutName: string) {
+  if (!cy) return
+  
+  const positions: { [key: string]: { x: number; y: number } } = {}
+  cy.nodes().forEach(node => {
+    const pos = node.position()
+    positions[node.id()] = { x: pos.x, y: pos.y }
   })
+  
+  const snapshot: LayoutSnapshot = {
+    positions,
+    layout: layoutName,
+    timestamp: Date.now()
+  }
+  
+  // 删除当前索引之后的历史
+  layoutHistory.value = layoutHistory.value.slice(0, historyIndex.value + 1)
+  
+  // 添加新快照
+  layoutHistory.value.push(snapshot)
+  historyIndex.value = layoutHistory.value.length - 1
+  
+  // 限制历史记录数量
+  if (layoutHistory.value.length > 50) {
+    layoutHistory.value.shift()
+    historyIndex.value--
+  }
+  
+  updateHistoryButtons()
+}
+
+// 恢复布局快照
+function restoreLayoutSnapshot(snapshot: LayoutSnapshot) {
+  if (!cy) return
+  
+  cy.nodes().forEach(node => {
+    const pos = snapshot.positions[node.id()]
+    if (pos) {
+      node.position(pos)
+    }
+  })
+  
+  selectedLayout.value = snapshot.layout
+}
+
+// 更新历史按钮状态
+function updateHistoryButtons() {
+  canUndo.value = historyIndex.value > 0
+  canRedo.value = historyIndex.value < layoutHistory.value.length - 1
+}
+
+// 撤销布局
+function undoLayout() {
+  if (!canUndo.value || historyIndex.value <= 0) return
+  
+  historyIndex.value--
+  const snapshot = layoutHistory.value[historyIndex.value]
+  restoreLayoutSnapshot(snapshot)
+  updateHistoryButtons()
+}
+
+// 重做布局
+function redoLayout() {
+  if (!canRedo.value || historyIndex.value >= layoutHistory.value.length - 1) return
+  
+  historyIndex.value++
+  const snapshot = layoutHistory.value[historyIndex.value]
+  restoreLayoutSnapshot(snapshot)
+  updateHistoryButtons()
+}
+
+// 应用布局
+function applyLayout() {
+  if (!cy) return
+  
+  const layoutName = selectedLayout.value
+  let layoutOptions: any = {
+    name: layoutName,
+    animate: true,
+    animationDuration: 500,
+    fit: true,
+    padding: 50
+  }
+  
+  // 根据不同布局类型设置特定参数
+  switch (layoutName) {
+    case 'dagre':
+      layoutOptions = {
+        ...layoutOptions,
+        rankDir: 'TB',
+        nodeSep: 50,
+        rankSep: 100
+      }
+      break
+    
+    case 'circle':
+      layoutOptions = {
+        ...layoutOptions,
+        radius: 200,
+        startAngle: 0,
+        sweep: 2 * Math.PI
+      }
+      break
+    
+    case 'cola':
+      layoutOptions = {
+        ...layoutOptions,
+        nodeSpacing: 50,
+        edgeLength: 100,
+        randomize: false
+      }
+      break
+    
+    case 'grid':
+      layoutOptions = {
+        ...layoutOptions,
+        rows: undefined,
+        cols: undefined,
+        position: (node: any) => node.position()
+      }
+      break
+    
+    case 'concentric':
+      layoutOptions = {
+        ...layoutOptions,
+        concentric: (node: any) => node.degree(),
+        levelWidth: () => 2,
+        minNodeSpacing: 50
+      }
+      break
+    
+    case 'breadthfirst':
+      layoutOptions = {
+        ...layoutOptions,
+        directed: true,
+        spacingFactor: 1.5,
+        grid: false
+      }
+      break
+    
+    case 'cose':
+      layoutOptions = {
+        ...layoutOptions,
+        nodeRepulsion: 400000,
+        idealEdgeLength: 100,
+        edgeElasticity: 100,
+        nestingFactor: 5,
+        gravity: 80,
+        numIter: 1000,
+        initialTemp: 200,
+        coolingFactor: 0.95,
+        minTemp: 1.0
+      }
+      break
+  }
+  
+  const layout = cy.layout(layoutOptions)
+  
+  // 布局完成后保存快照
+  layout.on('layoutstop', () => {
+    saveLayoutSnapshot(layoutName)
+    fitView()
+  })
+  
+  layout.run()
 }
 
 function clearGraph() {
-  nodes.value = []
-  edges.value = []
-  selectedNode.value = null
+  if (!cy) return
+  cy.elements().remove()
+  selectedNodeId.value = null
+  updateStats()
 }
 
 // 添加节点
 function addNode(id: string, label: string, color: string = '#4CAF50') {
-  const canvas = canvasRef.value
-  if (!canvas) return
-
-  const existing = nodes.value.find(n => n.id === id)
-  if (existing) {
-    // 临时高亮已存在的节点
-    existing.tempHighlighted = true
-    setTimeout(() => {
-      existing.tempHighlighted = false
-    }, 1000)
+  if (!cy) return
+  
+  const existingNode = cy.getElementById(id)
+  if (existingNode.length > 0) {
+    console.warn(`Node ${id} already exists`)
     return
   }
 
-  const centerX = canvas.width / devicePixelRatio / 2
-  const centerY = canvas.height / devicePixelRatio / 2
-
-  nodes.value.push({
-    id,
-    label,
-    x: centerX + (Math.random() - 0.5) * 200,
-    y: centerY + (Math.random() - 0.5) * 200,
-    vx: 0,
-    vy: 0,
-    color,
-    highlighted: false,
-    tempHighlighted: false,
-    radius: 30
-  })
+  cy.add({ data: { id, label, color } })
+  updateStats()
+  
+  pluginManager.getEventBus().emit('graph:nodeAdded', { id, label, color })
 }
 
 // 添加边
 function addEdge(id: string, source: string, target: string, label?: string, color: string = '#666') {
-  const existing = edges.value.find(e => e.id === id)
-  if (existing) return
+  if (!cy) return
+  
+  const existingEdge = cy.getElementById(id)
+  if (existingEdge.length > 0) {
+    console.warn(`Edge ${id} already exists`)
+    return
+  }
 
-  edges.value.push({
-    id,
-    source,
-    target,
-    label,
-    color,
-    highlighted: false
-  })
+  cy.add({ data: { id, source, target, label, color } })
+  updateStats()
+  
+  pluginManager.getEventBus().emit('graph:edgeAdded', { id, source, target, label, color })
 }
 
 // 高亮节点
-function highlightNode(id: string, highlight: boolean = true) {
-  const node = nodes.value.find(n => n.id === id)
-  if (node) {
-    node.highlighted = highlight
+function highlightNode(nodeId: string) {
+  if (!cy) return
+  const node = cy.getElementById(nodeId)
+  if (node.length > 0) {
+    node.addClass('highlighted')
+    pluginManager.getEventBus().emit('graph:highlighted', nodeId)
   }
 }
 
 // 临时高亮节点
-function tempHighlightNode(id: string, duration: number = 1000) {
-  const node = nodes.value.find(n => n.id === id)
-  if (node) {
-    node.tempHighlighted = true
+function tempHighlightNode(nodeId: string, duration: number = 2000) {
+  if (!cy) return
+  const node = cy.getElementById(nodeId)
+  if (node.length > 0) {
+    node.addClass('temp-highlighted')
     setTimeout(() => {
-      node.tempHighlighted = false
+      node.removeClass('temp-highlighted')
     }, duration)
   }
 }
 
 // 高亮边
-function highlightEdge(id: string, highlight: boolean = true) {
-  const edge = edges.value.find(e => e.id === id)
-  if (edge) {
-    edge.highlighted = highlight
+function highlightEdge(edgeId: string) {
+  if (!cy) return
+  const edge = cy.getElementById(edgeId)
+  if (edge.length > 0) {
+    edge.addClass('highlighted')
   }
 }
 
-// 处理数据包
+// 监听数据包
 function handleDataPacket(packet: any) {
   if (packet.type !== 'QI') return
 
   console.log('[GraphView] Received QI packet:', packet)
 
-  // 根据数据包内容更新图
-  if (packet.action === 'addNode') {
-    addNode(packet.id, packet.label || packet.id, packet.color)
-  } else if (packet.action === 'addEdge') {
-    addEdge(packet.id, packet.source, packet.target, packet.label, packet.color)
-  } else if (packet.action === 'highlight') {
-    highlightNode(packet.nodeId, true)
-  } else if (packet.action === 'unhighlight') {
-    highlightNode(packet.nodeId, false)
-  } else if (packet.action === 'tempHighlight') {
-    tempHighlightNode(packet.nodeId, packet.duration)
-  } else if (packet.action === 'highlightEdge') {
-    highlightEdge(packet.edgeId, true)
+  switch (packet.action) {
+    case 'addNode':
+      if (packet.id) {
+        addNode(packet.id, packet.label || packet.id, packet.color || '#4CAF50')
+      }
+      break
+    
+    case 'addEdge':
+      if (packet.id && packet.source && packet.target) {
+        addEdge(packet.id, packet.source, packet.target, packet.label, packet.color || '#666')
+      }
+      break
+    
+    case 'highlight':
+      if (packet.nodeId) {
+        highlightNode(packet.nodeId)
+      }
+      break
+    
+    case 'tempHighlight':
+      if (packet.nodeId) {
+        tempHighlightNode(packet.nodeId, packet.duration || 2000)
+      }
+      break
+    
+    case 'highlightEdge':
+      if (packet.edgeId) {
+        highlightEdge(packet.edgeId)
+      }
+      break
   }
 }
 
-// 监听数据包
+// 生命周期
 onMounted(() => {
-  initCanvas()
-
-  // 监听 QI 数据包
+  initCytoscape()
+  
+  // 监听数据包
   const eventBus = pluginManager.getEventBus()
   eventBus.on('data:packet', handleDataPacket)
-  
-  console.log('[GraphView] Mounted and listening for QI packets')
 })
 
 onUnmounted(() => {
-  if (animationFrameId !== null) {
-    cancelAnimationFrame(animationFrameId)
-  }
-
-  window.removeEventListener('resize', resizeCanvas)
-
-  // 取消监听
   const eventBus = pluginManager.getEventBus()
   eventBus.off('data:packet', handleDataPacket)
+  
+  if (cy) {
+    cy.destroy()
+  }
 })
 
-// 暴露方法给外部
+// 暴露方法供外部调用
 defineExpose({
   addNode,
   addEdge,
@@ -584,7 +768,8 @@ defineExpose({
   tempHighlightNode,
   highlightEdge,
   clearGraph,
-  autoLayout
+  resetView,
+  fitView
 })
 </script>
 
@@ -597,41 +782,116 @@ defineExpose({
   overflow: hidden;
 }
 
-.graph-canvas {
+.grid-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  display: block;
-  cursor: grab;
+  pointer-events: none;
+  z-index: 0;
 }
 
-.graph-canvas:active {
-  cursor: grabbing;
+.cy-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
 }
 
-.graph-controls {
+/* 悬浮工具栏 */
+.floating-toolbar {
   position: absolute;
   top: 16px;
-  left: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  gap: 8px;
-}
-
-.control-btn {
-  padding: 8px 16px;
-  background: #fff;
+  align-items: center;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border: 1px solid #e3e5e7;
-  border-radius: 6px;
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  transition: all 0.3s ease;
+}
+
+.floating-toolbar:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: #e3e5e7;
+  margin: 0 8px;
+}
+
+.toolbar-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.toolbar-btn .icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.toolbar-btn:active:not(:disabled) {
+  background: rgba(0, 0, 0, 0.1);
+  transform: scale(0.95);
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.toolbar-select {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #e3e5e7;
+  border-radius: 8px;
   color: #202124;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-width: 120px;
+  height: 36px;
 }
 
-.control-btn:hover {
-  background: #f0f4f8;
+.toolbar-select:hover {
+  background: rgba(0, 0, 0, 0.03);
   border-color: #c5cdd5;
+}
+
+.toolbar-select:focus {
+  outline: none;
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.05);
 }
 
 .graph-stats {
@@ -647,5 +907,6 @@ defineExpose({
   font-size: 12px;
   line-height: 1.6;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  z-index: 10;
 }
 </style>
