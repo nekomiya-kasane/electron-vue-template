@@ -1,5 +1,8 @@
 import { reactive, markRaw } from 'vue'
 import { EventBus } from './EventBus'
+import { CommandRegistry } from './CommandRegistry'
+import { ConfigurationService } from './ConfigurationService'
+import { DisposableStore } from './EventEmitter'
 import {
   PluginStatus,
   type Plugin,
@@ -22,6 +25,13 @@ export class PluginManager {
   private plugins: Map<string, PluginInstance> = new Map()
   private eventBus: EventBus = new EventBus()
   private storage: Map<string, any> = new Map()
+  
+  // VSCode 风格的服务
+  private commandRegistry: CommandRegistry = new CommandRegistry()
+  private configService: ConfigurationService = new ConfigurationService()
+  
+  // 插件的 Disposable 管理
+  private pluginDisposables: Map<string, DisposableStore> = new Map()
 
   // 响应式状态
   public state = reactive({
@@ -192,6 +202,12 @@ export class PluginManager {
    * 创建插件上下文
    */
   private createContext(pluginId: string): PluginContext {
+    // 为插件创建 Disposable 存储
+    if (!this.pluginDisposables.has(pluginId)) {
+      this.pluginDisposables.set(pluginId, new DisposableStore())
+    }
+    const disposables = this.pluginDisposables.get(pluginId)!
+    
     return {
       registerDocumentType: (type: DocumentType) => {
         this.state.documentTypes.set(type.id, type)
@@ -299,7 +315,58 @@ export class PluginManager {
         remove: (key: string) => {
           this.storage.delete(`${pluginId}:${key}`)
         }
-      }
+      },
+
+      // VSCode 风格的命令系统
+      commands: {
+        registerCommand: (id: string, handler: (...args: any[]) => any, options?: { description?: string; category?: string }) => {
+          const fullId = `${pluginId}.${id}`
+          this.commandRegistry.registerCommand(fullId, handler, options)
+          
+          // 添加到 disposables，卸载时自动注销
+          disposables.add({
+            dispose: () => this.commandRegistry.unregisterCommand(fullId)
+          })
+          
+          return fullId
+        },
+        
+        executeCommand: <T = any>(id: string, ...args: any[]) => {
+          return this.commandRegistry.executeCommand<T>(id, ...args)
+        },
+        
+        getCommands: () => {
+          return this.commandRegistry.getAllCommands()
+        }
+      },
+
+      // VSCode 风格的配置系统
+      configuration: {
+        get: <T = any>(section: string, defaultValue?: T) => {
+          return this.configService.get<T>(section) ?? defaultValue
+        },
+        
+        update: (section: string, value: any, scope?: 'global' | 'workspace') => {
+          this.configService.update(section, value, scope)
+        },
+        
+        has: (section: string) => {
+          return this.configService.has(section)
+        },
+        
+        getConfiguration: (section?: string) => {
+          return this.configService.getConfiguration(section)
+        },
+        
+        onDidChangeConfiguration: (listener: (event: any) => void) => {
+          const dispose = this.configService.onDidChangeConfiguration(listener)
+          disposables.add({ dispose })
+          return dispose
+        }
+      },
+
+      // Disposable 管理
+      subscriptions: disposables
     }
   }
 
@@ -307,6 +374,13 @@ export class PluginManager {
    * 清理插件资源
    */
   private cleanupPluginResources(pluginId: string): void {
+    // 清理 Disposables（会自动清理命令、事件监听等）
+    const disposables = this.pluginDisposables.get(pluginId)
+    if (disposables) {
+      disposables.dispose()
+      this.pluginDisposables.delete(pluginId)
+    }
+
     // 清理图标按钮
     this.state.iconButtons = this.state.iconButtons.filter(
       btn => !btn.id.startsWith(`${pluginId}:`)
@@ -420,6 +494,34 @@ export class PluginManager {
    */
   getEventBus(): EventBus {
     return this.eventBus
+  }
+
+  /**
+   * 获取命令注册表
+   */
+  getCommandRegistry(): CommandRegistry {
+    return this.commandRegistry
+  }
+
+  /**
+   * 获取配置服务
+   */
+  getConfigurationService(): ConfigurationService {
+    return this.configService
+  }
+
+  /**
+   * 执行命令（全局方法）
+   */
+  async executeCommand<T = any>(id: string, ...args: any[]): Promise<T> {
+    return this.commandRegistry.executeCommand<T>(id, ...args)
+  }
+
+  /**
+   * 获取配置（全局方法）
+   */
+  getConfiguration(section?: string) {
+    return this.configService.getConfiguration(section)
   }
 }
 

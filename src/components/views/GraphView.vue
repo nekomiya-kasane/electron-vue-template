@@ -42,16 +42,110 @@
       <div class="toolbar-divider"></div>
       
       <div class="toolbar-section">
+        <button @click="showEdgeStylePanel = !showEdgeStylePanel" class="toolbar-btn" title="边样式设置">
+          <span class="icon">🎨</span>
+        </button>
         <button @click="clearGraph" class="toolbar-btn" title="清空图">
           <span class="icon">🗑️</span>
         </button>
       </div>
     </div>
+
+    <!-- 边样式设置面板 -->
+    <div v-if="showEdgeStylePanel" class="edge-style-panel">
+      <div class="panel-header">
+        <h3>边样式设置</h3>
+        <button @click="showEdgeStylePanel = false" class="close-btn">✕</button>
+      </div>
+      <div class="panel-content">
+        <div class="style-group">
+          <label>线宽</label>
+          <input 
+            type="range" 
+            v-model.number="defaultEdgeStyle.width" 
+            min="1" 
+            max="10" 
+            step="0.5"
+            @input="applyEdgeStyle"
+          />
+          <span class="value">{{ defaultEdgeStyle.width }}px</span>
+        </div>
+
+        <div class="style-group">
+          <label>颜色</label>
+          <input 
+            type="color" 
+            v-model="defaultEdgeStyle.color"
+            @input="applyEdgeStyle"
+          />
+          <span class="value">{{ defaultEdgeStyle.color }}</span>
+        </div>
+
+        <div class="style-group">
+          <label>箭头形状</label>
+          <select v-model="defaultEdgeStyle.arrowShape" @change="applyEdgeStyle">
+            <option value="triangle">三角形</option>
+            <option value="triangle-tee">三角形-T</option>
+            <option value="circle-triangle">圆-三角</option>
+            <option value="triangle-cross">三角形-十字</option>
+            <option value="triangle-backcurve">三角形-弧</option>
+            <option value="vee">V形</option>
+            <option value="tee">T形</option>
+            <option value="square">方形</option>
+            <option value="circle">圆形</option>
+            <option value="diamond">菱形</option>
+            <option value="chevron">箭头</option>
+            <option value="none">无</option>
+          </select>
+        </div>
+
+        <div class="style-group">
+          <label>曲线样式</label>
+          <select v-model="defaultEdgeStyle.curveStyle" @change="applyEdgeStyle">
+            <option value="bezier">贝塞尔曲线</option>
+            <option value="straight">直线</option>
+            <option value="segments">折线</option>
+            <option value="taxi">出租车路径</option>
+          </select>
+        </div>
+
+        <div class="style-group">
+          <label>线条样式</label>
+          <select v-model="defaultEdgeStyle.lineStyle" @change="applyEdgeStyle">
+            <option value="solid">实线</option>
+            <option value="dotted">点线</option>
+            <option value="dashed">虚线</option>
+          </select>
+        </div>
+
+        <div class="style-group">
+          <label>不透明度</label>
+          <input 
+            type="range" 
+            v-model.number="defaultEdgeStyle.opacity" 
+            min="0" 
+            max="1" 
+            step="0.1"
+            @input="applyEdgeStyle"
+          />
+          <span class="value">{{ Math.round(defaultEdgeStyle.opacity * 100) }}%</span>
+        </div>
+
+        <div class="panel-actions">
+          <button @click="resetEdgeStyle" class="action-btn">重置默认</button>
+          <button @click="applyToSelectedEdge" class="action-btn primary" :disabled="!selectedEdgeId">
+            应用到选中边
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="graph-stats">
       <div>节点: {{ nodeCount }}</div>
       <div>边: {{ edgeCount }}</div>
       <div>缩放: {{ zoomLevel }}%</div>
-      <div v-if="selectedNodeId">选中: {{ selectedNodeId }}</div>
+      <div v-if="selectedNodeId">选中节点: {{ selectedNodeId }}</div>
+      <div v-if="selectedEdgeId">选中边: {{ selectedEdgeId }}</div>
     </div>
   </div>
 </template>
@@ -83,7 +177,29 @@ const nodeCount = ref(0)
 const edgeCount = ref(0)
 const zoomLevel = ref(100)
 const selectedNodeId = ref<string | null>(null)
-const selectedLayout = ref('dagre')
+const selectedEdgeId = ref<string | null>(null)
+const selectedLayout = ref('cose')  // 使用 CoSE 布局，节点分布更均匀
+
+// 边样式配置
+interface EdgeStyle {
+  width: number
+  color: string
+  arrowShape: 'triangle' | 'triangle-tee' | 'circle-triangle' | 'triangle-cross' | 'triangle-backcurve' | 'vee' | 'tee' | 'square' | 'circle' | 'diamond' | 'chevron' | 'none'
+  curveStyle: 'bezier' | 'straight' | 'segments' | 'taxi'
+  lineStyle: 'solid' | 'dotted' | 'dashed'
+  opacity: number
+}
+
+const defaultEdgeStyle = ref<EdgeStyle>({
+  width: 3,
+  color: '#666',
+  arrowShape: 'triangle',
+  curveStyle: 'bezier',
+  lineStyle: 'solid',
+  opacity: 1
+})
+
+const showEdgeStylePanel = ref(false)
 
 // 布局历史记录
 interface LayoutSnapshot {
@@ -151,11 +267,13 @@ function initCytoscape() {
       {
         selector: 'edge',
         style: {
-          'width': 3,
+          'width': 'data(width)',
           'line-color': 'data(color)',
           'target-arrow-color': 'data(color)',
-          'target-arrow-shape': 'triangle',
-          'curve-style': 'bezier',
+          'target-arrow-shape': 'data(arrowShape)',
+          'curve-style': 'data(curveStyle)',
+          'line-style': 'data(lineStyle)',
+          'opacity': 'data(opacity)',
           'label': 'data(label)',
           'font-size': 12,
           'text-rotation': 'autorotate',
@@ -167,7 +285,7 @@ function initCytoscape() {
           'text-border-width': 1,
           'text-border-color': '#e3e5e7',
           'text-border-opacity': 1
-        }
+        } as any
       },
       // 高亮边
       {
@@ -196,6 +314,7 @@ function initCytoscape() {
   cy.on('select', 'node', (evt) => {
     const node = evt.target
     selectedNodeId.value = node.id()
+    selectedEdgeId.value = null
     pluginManager.getEventBus().emit('graph:nodeSelected', node.id())
   })
 
@@ -206,6 +325,23 @@ function initCytoscape() {
   cy.on('tap', 'node', (evt) => {
     const node = evt.target
     pluginManager.getEventBus().emit('graph:nodeTapped', node.id())
+  })
+
+  // 边选择事件
+  cy.on('select', 'edge', (evt) => {
+    const edge = evt.target
+    selectedEdgeId.value = edge.id()
+    selectedNodeId.value = null
+    pluginManager.getEventBus().emit('graph:edgeSelected', edge.id())
+  })
+
+  cy.on('unselect', 'edge', () => {
+    selectedEdgeId.value = null
+  })
+
+  cy.on('tap', 'edge', (evt) => {
+    const edge = evt.target
+    pluginManager.getEventBus().emit('graph:edgeTapped', edge.id())
   })
 
   cy.on('zoom', () => {
@@ -227,7 +363,7 @@ function initCytoscape() {
   createSampleGraph()
   
   // 保存初始布局
-  saveLayoutSnapshot('dagre')
+  saveLayoutSnapshot('cose')
 }
 
 // 初始化网格
@@ -423,15 +559,95 @@ function createSampleGraph() {
     { data: { id: 'A', label: 'Node A', color: '#4CAF50' } },
     { data: { id: 'B', label: 'Node B', color: '#2196F3' } },
     { data: { id: 'C', label: 'Node C', color: '#FF9800' } },
+    { data: { id: 'D', label: 'Node D', color: '#E91E63' } },
+    { data: { id: 'E', label: 'Node E', color: '#9C27B0' } },
     
-    // 边
-    { data: { id: 'AB', source: 'A', target: 'B', label: 'edge 1', color: '#666' } },
-    { data: { id: 'BC', source: 'B', target: 'C', label: 'edge 2', color: '#666' } },
-    { data: { id: 'CA', source: 'C', target: 'A', label: 'edge 3', color: '#666' } }
+    // 边 - 展示不同样式
+    { 
+      data: { 
+        id: 'AB', 
+        source: 'A', 
+        target: 'B', 
+        label: '实线', 
+        color: '#666',
+        width: 3,
+        arrowShape: 'triangle',
+        curveStyle: 'bezier',
+        lineStyle: 'solid',
+        opacity: 1
+      } 
+    },
+    { 
+      data: { 
+        id: 'BC', 
+        source: 'B', 
+        target: 'C', 
+        label: '虚线', 
+        color: '#2196F3',
+        width: 4,
+        arrowShape: 'vee',
+        curveStyle: 'bezier',
+        lineStyle: 'dashed',
+        opacity: 0.8
+      } 
+    },
+    { 
+      data: { 
+        id: 'CD', 
+        source: 'C', 
+        target: 'D', 
+        label: '点线', 
+        color: '#FF9800',
+        width: 2,
+        arrowShape: 'circle',
+        curveStyle: 'bezier',
+        lineStyle: 'dotted',
+        opacity: 0.9
+      } 
+    },
+    { 
+      data: { 
+        id: 'DE', 
+        source: 'D', 
+        target: 'E', 
+        label: '直线', 
+        color: '#E91E63',
+        width: 5,
+        arrowShape: 'diamond',
+        curveStyle: 'straight',
+        lineStyle: 'solid',
+        opacity: 1
+      } 
+    },
+    { 
+      data: { 
+        id: 'EA', 
+        source: 'E', 
+        target: 'A', 
+        label: '曲线', 
+        color: '#9C27B0',
+        width: 3,
+        arrowShape: 'triangle-tee',
+        curveStyle: 'bezier',
+        lineStyle: 'solid',
+        opacity: 0.85
+      } 
+    }
   ])
 
-  // 应用布局
-  const layout: any = { name: 'dagre', rankDir: 'TB', nodeSep: 50, rankSep: 100 }
+  // 应用 CoSE 布局（更均匀的分布）
+  const layout: any = { 
+    name: 'cose',
+    animate: true,
+    animationDuration: 500,
+    nodeRepulsion: 400000,
+    idealEdgeLength: 100,
+    edgeElasticity: 100,
+    gravity: 80,
+    numIter: 1000,
+    fit: true,
+    padding: 50
+  }
   cy.layout(layout).run()
   
   updateStats()
@@ -637,7 +853,61 @@ function clearGraph() {
   if (!cy) return
   cy.elements().remove()
   selectedNodeId.value = null
+  selectedEdgeId.value = null
   updateStats()
+}
+
+// 应用边样式到所有边
+function applyEdgeStyle() {
+  if (!cy) return
+  
+  const style = defaultEdgeStyle.value
+  
+  cy.style()
+    .selector('edge')
+    .style({
+      'width': style.width,
+      'line-color': style.color,
+      'target-arrow-color': style.color,
+      'target-arrow-shape': style.arrowShape,
+      'curve-style': style.curveStyle,
+      'line-style': style.lineStyle,
+      'opacity': style.opacity
+    } as any)
+    .update()
+}
+
+// 重置边样式为默认值
+function resetEdgeStyle() {
+  defaultEdgeStyle.value = {
+    width: 3,
+    color: '#666',
+    arrowShape: 'triangle',
+    curveStyle: 'bezier',
+    lineStyle: 'solid',
+    opacity: 1
+  }
+  applyEdgeStyle()
+}
+
+// 应用样式到选中的边
+function applyToSelectedEdge() {
+  if (!cy || !selectedEdgeId.value) return
+  
+  const edge = cy.getElementById(selectedEdgeId.value)
+  if (edge.length === 0) return
+  
+  const style = defaultEdgeStyle.value
+  
+  edge.style({
+    'width': style.width,
+    'line-color': style.color,
+    'target-arrow-color': style.color,
+    'target-arrow-shape': style.arrowShape,
+    'curve-style': style.curveStyle,
+    'line-style': style.lineStyle,
+    'opacity': style.opacity
+  } as any)
 }
 
 // 添加节点
@@ -656,8 +926,21 @@ function addNode(id: string, label: string, color: string = '#4CAF50') {
   pluginManager.getEventBus().emit('graph:nodeAdded', { id, label, color })
 }
 
-// 添加边
-function addEdge(id: string, source: string, target: string, label?: string, color: string = '#666') {
+// 添加边（支持自定义样式）
+function addEdge(
+  id: string, 
+  source: string, 
+  target: string, 
+  label?: string, 
+  options?: {
+    color?: string
+    width?: number
+    arrowShape?: string
+    curveStyle?: string
+    lineStyle?: string
+    opacity?: number
+  }
+) {
   if (!cy) return
   
   const existingEdge = cy.getElementById(id)
@@ -666,10 +949,24 @@ function addEdge(id: string, source: string, target: string, label?: string, col
     return
   }
 
-  cy.add({ data: { id, source, target, label, color } })
+  // 合并默认样式和自定义样式
+  const edgeData = {
+    id,
+    source,
+    target,
+    label,
+    color: options?.color || '#666',
+    width: options?.width || 3,
+    arrowShape: options?.arrowShape || 'triangle',
+    curveStyle: options?.curveStyle || 'bezier',
+    lineStyle: options?.lineStyle || 'solid',
+    opacity: options?.opacity || 1
+  }
+
+  cy.add({ data: edgeData })
   updateStats()
   
-  pluginManager.getEventBus().emit('graph:edgeAdded', { id, source, target, label, color })
+  pluginManager.getEventBus().emit('graph:edgeAdded', edgeData)
 }
 
 // 高亮节点
@@ -908,5 +1205,177 @@ defineExpose({
   line-height: 1.6;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   z-index: 10;
+}
+
+/* 边样式设置面板 */
+.edge-style-panel {
+  position: absolute;
+  top: 80px;
+  right: 16px;
+  width: 300px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  border: 1px solid #e3e5e7;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid #e3e5e7;
+  background: #f8f9fa;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #202124;
+}
+
+.close-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #5f6368;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #202124;
+}
+
+.panel-content {
+  padding: 16px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.style-group {
+  margin-bottom: 16px;
+}
+
+.style-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #5f6368;
+}
+
+.style-group input[type="range"] {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: #e3e5e7;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.style-group input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #4a9eff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.style-group input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.style-group input[type="color"] {
+  width: 100%;
+  height: 36px;
+  border: 1px solid #e3e5e7;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.style-group select {
+  width: 100%;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #e3e5e7;
+  border-radius: 6px;
+  color: #202124;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.style-group select:hover {
+  border-color: #c5cdd5;
+}
+
+.style-group select:focus {
+  outline: none;
+  border-color: #4a9eff;
+  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1);
+}
+
+.style-group .value {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  color: #5f6368;
+  font-family: monospace;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e3e5e7;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 8px 16px;
+  background: #fff;
+  border: 1px solid #e3e5e7;
+  border-radius: 6px;
+  color: #202124;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: #f0f4f8;
+  border-color: #c5cdd5;
+}
+
+.action-btn.primary {
+  background: #4a9eff;
+  border-color: #4a9eff;
+  color: #fff;
+}
+
+.action-btn.primary:hover:not(:disabled) {
+  background: #3a8eef;
+  border-color: #3a8eef;
+}
+
+.action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 </style>

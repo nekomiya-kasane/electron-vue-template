@@ -53,6 +53,21 @@ export const GraphPlugin: Plugin = {
       component: defineAsyncComponent(() => import('@/components/panels/HistoryPanel.vue'))
     }, ['QIViewer'])
 
+    // 注册右侧 Graph Elements 按钮和侧边栏
+    context.registerIconButton({
+      id: 'graph-elements',
+      icon: '🔍',
+      title: 'Graph Elements',
+      position: 'right'
+    }, ['QIViewer'])
+
+    context.registerSidebar({
+      id: 'graph-elements',
+      title: '图元素',
+      position: 'right',
+      component: defineAsyncComponent(() => import('@/components/panels/GraphElementsPanel.vue'))
+    }, ['QIViewer'])
+
     // 注册主视图（Graph 查看器）
     context.registerMainView({
       id: 'graph-viewer',
@@ -154,9 +169,9 @@ export const GraphPlugin: Plugin = {
     // 切换到 Graph 查看器
     context.switchMainView('graph-viewer')
     
-    // 默认打开 Session 和 History 侧边栏
+    // 默认打开 Session 和 Graph Elements 侧边栏
     context.activateSidebar('session', 'left')
-    context.activateSidebar('history', 'right')
+    context.activateSidebar('graph-elements', 'right')
   },
 
   onDeactivate(_context: PluginContext) {

@@ -1,4 +1,6 @@
 import { Component } from 'vue'
+import type { DisposableStore } from './EventEmitter'
+import type { ConfigurationChangeEvent } from './ConfigurationService'
 
 /**
  * 菜单项配置
@@ -146,6 +148,32 @@ export interface PluginContext {
     set(key: string, value: any): void
     remove(key: string): void
   }
+
+  // VSCode 风格的命令系统
+  commands: {
+    registerCommand(id: string, handler: (...args: any[]) => any, options?: {
+      description?: string
+      category?: string
+    }): string
+    executeCommand<T = any>(id: string, ...args: any[]): Promise<T>
+    getCommands(): Array<{ id: string; description?: string; category?: string }>
+  }
+
+  // VSCode 风格的配置系统
+  configuration: {
+    get<T = any>(section: string, defaultValue?: T): T | undefined
+    update(section: string, value: any, scope?: 'global' | 'workspace'): void
+    has(section: string): boolean
+    getConfiguration(section?: string): {
+      get<T = any>(key: string, defaultValue?: T): T
+      update(key: string, value: any, scope?: 'global' | 'workspace'): void
+      has(key: string): boolean
+    }
+    onDidChangeConfiguration(listener: (event: ConfigurationChangeEvent) => void): () => void
+  }
+
+  // Disposable 管理
+  subscriptions: DisposableStore
 }
 
 /**
