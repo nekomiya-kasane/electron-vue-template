@@ -44,7 +44,7 @@ const handleClick = (id: string) => {
   display: flex;
   flex-direction: column;
   background: #2c2c2c;
-  width: 48px;
+  width: 40px;
   flex-shrink: 0;
   height: 100%;
 }
@@ -60,15 +60,15 @@ const handleClick = (id: string) => {
 .icon-bar-items {
   display: flex;
   flex-direction: column;
-  padding: 8px 0;
-  gap: 4px;
+  padding: 4px 0;
+  gap: 2px;
 }
 
 .icon-bar-btn {
   background: none;
   border: none;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -76,7 +76,7 @@ const handleClick = (id: string) => {
   position: relative;
   transition: all 0.2s ease;
   color: #9aa0a6;
-  border-radius: 8px;
+  border-radius: 6px;
   margin: 0 4px;
 }
 
@@ -109,6 +109,6 @@ const handleClick = (id: string) => {
 }
 
 .icon {
-  font-size: 20px;
+  font-size: 16px;
 }
 </style>

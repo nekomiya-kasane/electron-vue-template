@@ -1101,18 +1101,18 @@ defineExpose({
 /* 悬浮工具栏 */
 .floating-toolbar {
   position: absolute;
-  top: 16px;
+  top: 12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 0;
-  background: rgba(255, 255, 255, 0.95);
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(10px);
   border: 1px solid #e3e5e7;
-  border-radius: 12px;
-  padding: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   z-index: 10;
   transition: all 0.3s ease;
 }
@@ -1135,21 +1135,22 @@ defineExpose({
 }
 
 .toolbar-btn {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: none;
-  border-radius: 8px;
+  border: 1px solid #e3e5e7;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
-  position: relative;
+  color: #202124;
+  font-size: 12px;
 }
 
 .toolbar-btn .icon {
-  font-size: 18px;
+  font-size: 14px;
   line-height: 1;
 }
 
@@ -1193,16 +1194,16 @@ defineExpose({
 
 .graph-stats {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  padding: 12px 16px;
+  top: 12px;
+  right: 12px;
+  padding: 8px 12px;
   background: #fff;
   backdrop-filter: blur(10px);
   border: 1px solid #e3e5e7;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #202124;
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 11px;
+  line-height: 1.5;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   z-index: 10;
 }

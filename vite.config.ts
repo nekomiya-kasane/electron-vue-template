@@ -34,9 +34,16 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         compact: mode === "production",
-        comments: mode === "production" ? false : "all"
+        comments: mode === "production" ? false : "all",
+        // Monaco Editor workers
+        manualChunks: {
+          'monaco-editor': ['monaco-editor']
+        }
       },
     },
+  },
+  optimizeDeps: {
+    include: ['monaco-editor']
   },
   plugins: [
     vue({
