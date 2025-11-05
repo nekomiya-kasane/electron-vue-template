@@ -89,6 +89,7 @@ const addTab = () => {
   flex-shrink: 0;
   position: relative;
   background: rgba(0, 0, 0, 0.02);
+  -webkit-app-region: no-drag;
 }
 
 .tab:hover {
@@ -165,6 +166,7 @@ const addTab = () => {
   transition: all 0.2s ease;
   margin: 0 6px;
   flex-shrink: 0;
+  -webkit-app-region: no-drag;
 }
 
 .tab-add:hover {

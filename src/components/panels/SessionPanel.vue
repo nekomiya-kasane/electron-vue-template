@@ -152,8 +152,8 @@ defineExpose({
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #1a1a1a;
-  color: #fff;
+  background: #f7f9fa;
+  color: #202124;
 }
 
 .panel-header {
@@ -161,7 +161,7 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid #e3e5e7;
 }
 
 .panel-header h3 {
@@ -197,16 +197,16 @@ defineExpose({
   gap: 12px;
   padding: 12px;
   margin-bottom: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #fff;
+  border: 1px solid #e3e5e7;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .session-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: #f0f4f8;
+  border-color: #c5cdd5;
 }
 
 .session-item.active {
@@ -237,23 +237,23 @@ defineExpose({
   display: flex;
   gap: 12px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  color: #5f6368;
   margin-bottom: 4px;
 }
 
 .session-time {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #80868b;
 }
 
 .btn-delete {
   width: 24px;
   height: 24px;
   padding: 0;
-  background: rgba(255, 255, 255, 0.1);
+  background: #f0f4f8;
   border: none;
   border-radius: 4px;
-  color: #fff;
+  color: #5f6368;
   font-size: 18px;
   line-height: 1;
   cursor: pointer;

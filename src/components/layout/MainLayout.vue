@@ -255,18 +255,18 @@ const closeWindow = () => {
 /* 顶部栏：Logo + 标签栏 + 窗口控制 */
 .top-bar {
   display: flex;
+  align-items: center;
   height: 32px;
-  flex-shrink: 0;
-  background: #f7f9fa;
+  background: #ffffff;
   border-bottom: 1px solid #e3e5e7;
+  flex-shrink: 0;
   -webkit-app-region: drag;
 }
 
 .tab-bar-wrapper {
   flex: 1;
-  display: flex;
   overflow: hidden;
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
 }
 
 .window-controls {

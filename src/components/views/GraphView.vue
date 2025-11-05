@@ -9,13 +9,16 @@
       @wheel="handleWheel"
     ></canvas>
     <div class="graph-controls">
-      <button @click="resetView" class="control-btn">重置视图</button>
-      <button @click="autoLayout" class="control-btn">自动布局</button>
-      <button @click="clearGraph" class="control-btn">清空图</button>
+      <button @click="resetView" class="control-btn" title="重置视图和缩放">🔄 重置</button>
+      <button @click="zoomIn" class="control-btn" title="放大">🔍+ 放大</button>
+      <button @click="zoomOut" class="control-btn" title="缩小">🔍- 缩小</button>
+      <button @click="autoLayout" class="control-btn" title="自动布局">📐 布局</button>
+      <button @click="clearGraph" class="control-btn" title="清空图">🗑️ 清空</button>
     </div>
     <div class="graph-stats">
       <div>节点: {{ nodes.length }}</div>
       <div>边: {{ edges.length }}</div>
+      <div>缩放: {{ (viewScale * 100).toFixed(0) }}%</div>
       <div v-if="selectedNode">选中: {{ selectedNode.id }}</div>
     </div>
   </div>
@@ -57,7 +60,7 @@ const edges = ref<GraphEdge[]>([])
 const selectedNode = ref<GraphNode | null>(null)
 
 // 视图状态
-const viewOffset = ref({ x: 0, y: 0 })
+const viewOffset = ref({ x: 100, y: 300 })
 const viewScale = ref(1)
 const isDragging = ref(false)
 const dragStart = ref({ x: 0, y: 0 })
@@ -102,9 +105,9 @@ function resizeCanvas() {
 // 创建示例图
 function createSampleGraph() {
   nodes.value = [
-    { id: 'A', label: 'Node A', x: 200, y: 150, vx: 0, vy: 0, color: '#4CAF50', highlighted: false, tempHighlighted: false, radius: 30 },
-    { id: 'B', label: 'Node B', x: 400, y: 150, vx: 0, vy: 0, color: '#2196F3', highlighted: false, tempHighlighted: false, radius: 30 },
-    { id: 'C', label: 'Node C', x: 300, y: 300, vx: 0, vy: 0, color: '#FF9800', highlighted: false, tempHighlighted: false, radius: 30 },
+    { id: 'A', label: 'Node A', x: 100, y: -100, vx: 0, vy: 0, color: '#4CAF50', highlighted: false, tempHighlighted: false, radius: 30 },
+    { id: 'B', label: 'Node B', x: 300, y: -100, vx: 0, vy: 0, color: '#2196F3', highlighted: false, tempHighlighted: false, radius: 30 },
+    { id: 'C', label: 'Node C', x: 200, y: 50, vx: 0, vy: 0, color: '#FF9800', highlighted: false, tempHighlighted: false, radius: 30 },
   ]
 
   edges.value = [
@@ -125,10 +128,16 @@ function render() {
   // 清空画布
   ctx.clearRect(0, 0, width, height)
 
+  // 绘制网格（最底层）
+  drawGrid(ctx, width, height)
+
   // 应用变换
   ctx.save()
   ctx.translate(viewOffset.value.x, viewOffset.value.y)
   ctx.scale(viewScale.value, viewScale.value)
+
+  // 绘制坐标轴
+  drawAxes(ctx!)
 
   // 绘制边
   edges.value.forEach(edge => {
@@ -146,19 +155,16 @@ function render() {
 
   ctx.restore()
 
-  // 绘制网格（背景）
-  drawGrid(ctx, width, height)
-
   animationFrameId = requestAnimationFrame(render)
 }
 
 // 绘制网格
 function drawGrid(context: CanvasRenderingContext2D, width: number, height: number) {
   context.save()
-  context.strokeStyle = '#1a1a1a'
+  context.strokeStyle = '#f0f0f0'
   context.lineWidth = 1
 
-  const gridSize = 50
+  const gridSize = 50 * viewScale.value
   const offsetX = viewOffset.value.x % gridSize
   const offsetY = viewOffset.value.y % gridSize
 
@@ -178,6 +184,74 @@ function drawGrid(context: CanvasRenderingContext2D, width: number, height: numb
     context.stroke()
   }
 
+  context.restore()
+}
+
+// 绘制坐标轴
+function drawAxes(context: CanvasRenderingContext2D) {
+  context.save()
+  
+  // X 轴（红色）
+  context.strokeStyle = '#ff6b6b'
+  context.lineWidth = 2
+  context.beginPath()
+  context.moveTo(0, 0)
+  context.lineTo(500, 0)
+  context.stroke()
+  
+  // X 轴箭头
+  context.fillStyle = '#ff6b6b'
+  context.beginPath()
+  context.moveTo(500, 0)
+  context.lineTo(490, -5)
+  context.lineTo(490, 5)
+  context.closePath()
+  context.fill()
+  
+  // X 轴标签
+  context.fillStyle = '#ff6b6b'
+  context.font = 'bold 14px sans-serif'
+  context.textAlign = 'left'
+  context.textBaseline = 'top'
+  context.fillText('X', 510, -10)
+  
+  // Y 轴（绿色）
+  context.strokeStyle = '#51cf66'
+  context.lineWidth = 2
+  context.beginPath()
+  context.moveTo(0, 0)
+  context.lineTo(0, -500)
+  context.stroke()
+  
+  // Y 轴箭头
+  context.fillStyle = '#51cf66'
+  context.beginPath()
+  context.moveTo(0, -500)
+  context.lineTo(-5, -490)
+  context.lineTo(5, -490)
+  context.closePath()
+  context.fill()
+  
+  // Y 轴标签
+  context.fillStyle = '#51cf66'
+  context.font = 'bold 14px sans-serif'
+  context.textAlign = 'left'
+  context.textBaseline = 'bottom'
+  context.fillText('Y', 5, -510)
+  
+  // 原点标记
+  context.fillStyle = '#868e96'
+  context.beginPath()
+  context.arc(0, 0, 4, 0, Math.PI * 2)
+  context.fill()
+  
+  // 原点标签
+  context.fillStyle = '#868e96'
+  context.font = '12px sans-serif'
+  context.textAlign = 'right'
+  context.textBaseline = 'top'
+  context.fillText('O', -8, 8)
+  
   context.restore()
 }
 
@@ -266,10 +340,13 @@ function drawEdge(context: CanvasRenderingContext2D, source: GraphNode, target: 
     
     // 背景
     const metrics = context.measureText(edge.label)
-    context.fillStyle = 'rgba(0, 0, 0, 0.7)'
+    context.fillStyle = 'rgba(255, 255, 255, 0.95)'
+    context.strokeStyle = '#e3e5e7'
+    context.lineWidth = 1
+    context.strokeRect(midX - metrics.width / 2 - 4, midY - 8, metrics.width + 8, 16)
     context.fillRect(midX - metrics.width / 2 - 4, midY - 8, metrics.width + 8, 16)
     
-    context.fillStyle = '#fff'
+    context.fillStyle = '#202124'
     context.fillText(edge.label, midX, midY)
   }
 
@@ -346,8 +423,16 @@ function handleWheel(e: WheelEvent) {
 
 // 控制函数
 function resetView() {
-  viewOffset.value = { x: 0, y: 0 }
+  viewOffset.value = { x: 100, y: 300 }
   viewScale.value = 1
+}
+
+function zoomIn() {
+  viewScale.value = Math.min(3, viewScale.value + 0.1)
+}
+
+function zoomOut() {
+  viewScale.value = Math.max(0.1, viewScale.value - 0.1)
 }
 
 function autoLayout() {
@@ -508,7 +593,7 @@ defineExpose({
   position: relative;
   width: 100%;
   height: 100%;
-  background: #0f0f0f;
+  background: #ffffff;
   overflow: hidden;
 }
 
@@ -533,19 +618,20 @@ defineExpose({
 
 .control-btn {
   padding: 8px 16px;
-  background: rgba(0, 0, 0, 0.8);
+  background: #fff;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid #e3e5e7;
   border-radius: 6px;
-  color: #fff;
+  color: #202124;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .control-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: #f0f4f8;
+  border-color: #c5cdd5;
 }
 
 .graph-stats {
@@ -553,12 +639,13 @@ defineExpose({
   top: 16px;
   right: 16px;
   padding: 12px 16px;
-  background: rgba(0, 0, 0, 0.8);
+  background: #fff;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid #e3e5e7;
   border-radius: 8px;
-  color: #fff;
+  color: #202124;
   font-size: 12px;
   line-height: 1.6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 </style>

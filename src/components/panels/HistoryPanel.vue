@@ -184,8 +184,8 @@ defineExpose({
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #1a1a1a;
-  color: #fff;
+  background: #f7f9fa;
+  color: #202124;
 }
 
 .panel-header {
@@ -193,7 +193,7 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid #e3e5e7;
 }
 
 .panel-header h3 {
@@ -206,8 +206,8 @@ defineExpose({
   width: 32px;
   height: 32px;
   padding: 0;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f0f4f8;
+  border: 1px solid #e3e5e7;
   border-radius: 6px;
   font-size: 16px;
   cursor: pointer;
@@ -221,16 +221,16 @@ defineExpose({
 
 .filter-bar {
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid #e3e5e7;
 }
 
 .filter-select {
   width: 100%;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #fff;
+  border: 1px solid #e3e5e7;
   border-radius: 6px;
-  color: #fff;
+  color: #202124;
   font-size: 12px;
   cursor: pointer;
 }
@@ -252,7 +252,7 @@ defineExpose({
   gap: 12px;
   padding: 12px;
   margin-bottom: 8px;
-  background: rgba(255, 255, 255, 0.05);
+  background: #fff;
   border-left: 3px solid transparent;
   border-radius: 6px;
   cursor: pointer;
@@ -260,7 +260,7 @@ defineExpose({
 }
 
 .history-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: #f0f4f8;
 }
 
 .history-item.type-addNode {
@@ -298,7 +298,7 @@ defineExpose({
 
 .history-detail {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  color: #5f6368;
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -307,15 +307,15 @@ defineExpose({
 
 .history-time {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #80868b;
 }
 
 .btn-replay {
   width: 28px;
   height: 28px;
   padding: 0;
-  background: rgba(33, 150, 243, 0.2);
-  border: 1px solid rgba(33, 150, 243, 0.3);
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
   border-radius: 4px;
   color: #2196F3;
   font-size: 16px;
