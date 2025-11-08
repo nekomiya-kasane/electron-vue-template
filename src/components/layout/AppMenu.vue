@@ -101,18 +101,18 @@ const close = () => {
   position: absolute;
   background: #fff;
   border: 1px solid #e3e5e7;
-  border-radius: 8px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-  min-width: 200px;
-  padding: 6px;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 180px;
+  padding: 4px;
   z-index: 10000;
-  animation: menuFadeIn 0.2s ease;
+  animation: menuFadeIn 0.15s ease;
 }
 
 @keyframes menuFadeIn {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;
@@ -125,16 +125,18 @@ const close = () => {
 }
 
 .menu-section {
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .menu-section + .menu-section {
-  border-top: 1px solid #e3e5e7;
+  border-top: 1px solid #e8eaed;
+  margin-top: 2px;
+  padding-top: 2px;
 }
 
 .menu-section-title {
-  padding: 6px 12px;
-  font-size: 11px;
+  padding: 4px 8px 2px 8px;
+  font-size: 10px;
   font-weight: 600;
   color: #5f6368;
   text-transform: uppercase;
@@ -144,45 +146,49 @@ const close = () => {
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 5px 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.15s ease;
   font-size: 13px;
   color: #202124;
   position: relative;
-  border-radius: 6px;
-  margin: 2px 4px;
+  border-radius: 3px;
+  margin: 1px 2px;
+  line-height: 1.4;
 }
 
 .menu-item:hover {
-  background: #e8eaed;
-  transform: translateX(2px);
+  background: #f1f3f4;
 }
 
 .menu-item-icon {
-  font-size: 16px;
-  width: 20px;
+  font-size: 15px;
+  width: 18px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 .menu-item-label {
   flex: 1;
+  white-space: nowrap;
 }
 
 .menu-item-shortcut {
   font-size: 11px;
   color: #5f6368;
-  margin-left: auto;
+  margin-left: 12px;
+  flex-shrink: 0;
 }
 
 .menu-item-arrow {
-  font-size: 14px;
+  font-size: 13px;
   color: #5f6368;
-  margin-left: 8px;
+  margin-left: 4px;
+  flex-shrink: 0;
 }
 
 .has-submenu {
-  padding-right: 8px;
+  padding-right: 6px;
 }
 </style>
