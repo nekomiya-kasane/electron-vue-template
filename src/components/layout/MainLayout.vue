@@ -1,22 +1,27 @@
 <template>
     <div class="main-layout">
-        <TopBar />
+        <TitleBar />
         <div class="context-area">
-            <ExpansibleSideBar />
+            <ExpansibleSidebar />
             <MainArea />
-            <ExpansibleSideBar />
+            <ExpansibleSidebar />
         </div>
         <StatusBar />
     </div>
 </template>
 
 <script lang="ts" setup>
-import TopBar from './TopBar.vue'
-import ExpansibleSideBar from './ExpansibleSideBar.vue'
+import TitleBar from './TitleBar.vue'
+import ExpansibleSidebar from './ExpansibleSidebar.vue'
 import MainArea from './MainArea.vue'
 import StatusBar from './StatusBar.vue'
 </script>
 
 <style scoped>
-
+.main-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+}
 </style>
