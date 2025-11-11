@@ -113,7 +113,6 @@ export default defineConfig(({ mode }) => ({
       },
     ]),
     renderer({
-      resolve: {},
     }),
 
     // additional
