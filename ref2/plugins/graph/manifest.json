@@ -1,0 +1,174 @@
+{
+  "id": "graph",
+  "name": "Graph Visualization Plugin",
+  "displayName": "Graph 可视化",
+  "version": "1.0.0",
+  "description": "有向图可视化和数据包监听功能，支持QI查看器",
+  "publisher": "builtin",
+  "categories": ["documentType", "feature"],
+  "keywords": ["graph", "visualization", "qi", "cytoscape"],
+  "icon": "📊",
+  "isBuiltin": true,
+  "engines": {
+    "app": "^0.0.1"
+  },
+  "activationEvents": [
+    "onStartup",
+    "onDocumentType:QIViewer"
+  ],
+  "main": "./GraphPlugin.ts",
+  "contributes": {
+    "documentTypes": [
+      {
+        "id": "QIViewer",
+        "name": "QI 查看器",
+        "extensions": [".qi", ".qiv"],
+        "icon": "📊",
+        "defaultEditor": "graph-viewer"
+      }
+    ],
+    "iconButtons": [
+      {
+        "id": "session",
+        "icon": "📊",
+        "title": "Session",
+        "position": "left",
+        "when": "documentType == 'QIViewer'"
+      },
+      {
+        "id": "history",
+        "icon": "📜",
+        "title": "History",
+        "position": "right",
+        "when": "documentType == 'QIViewer'"
+      },
+      {
+        "id": "graph-elements",
+        "icon": "🔍",
+        "title": "Graph Elements",
+        "position": "right",
+        "when": "documentType == 'QIViewer'"
+      }
+    ],
+    "sidebars": [
+      {
+        "id": "session",
+        "title": "会话管理",
+        "icon": "📊",
+        "position": "left",
+        "when": "documentType == 'QIViewer'"
+      },
+      {
+        "id": "history",
+        "title": "操作历史",
+        "icon": "📜",
+        "position": "right",
+        "when": "documentType == 'QIViewer'"
+      },
+      {
+        "id": "graph-elements",
+        "title": "图元素",
+        "icon": "🔍",
+        "position": "right",
+        "when": "documentType == 'QIViewer'"
+      }
+    ],
+    "mainViews": [
+      {
+        "id": "graph-viewer",
+        "supportedDocumentTypes": ["QIViewer"],
+        "priority": 10
+      }
+    ],
+    "statusBarItems": [
+      {
+        "id": "graph-status",
+        "position": "left",
+        "priority": 8,
+        "when": "documentType == 'QIViewer'"
+      }
+    ],
+    "commands": [
+      {
+        "id": "graph.newGraph",
+        "title": "新建图",
+        "category": "Graph",
+        "icon": "📊"
+      },
+      {
+        "id": "graph.testPacket",
+        "title": "发送测试数据包",
+        "category": "Graph",
+        "icon": "📦"
+      },
+      {
+        "id": "graph.autoLayout",
+        "title": "自动布局",
+        "category": "Graph",
+        "icon": "🔄"
+      },
+      {
+        "id": "graph.clear",
+        "title": "清空图",
+        "category": "Graph",
+        "icon": "🗑️"
+      }
+    ],
+    "menus": {
+      "main": [
+        {
+          "command": "graph.newGraph",
+          "group": "graph",
+          "when": "documentType == 'QIViewer'"
+        },
+        {
+          "command": "graph.testPacket",
+          "group": "graph",
+          "when": "documentType == 'QIViewer'"
+        },
+        {
+          "command": "graph.autoLayout",
+          "group": "graph",
+          "when": "documentType == 'QIViewer'"
+        },
+        {
+          "command": "graph.clear",
+          "group": "graph",
+          "when": "documentType == 'QIViewer'"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Graph",
+      "properties": {
+        "graph.autoLayout": {
+          "type": "boolean",
+          "default": true,
+          "description": "自动布局图节点"
+        },
+        "graph.layoutAlgorithm": {
+          "type": "string",
+          "default": "dagre",
+          "enum": ["dagre", "cola", "grid", "circle"],
+          "enumDescriptions": [
+            "Dagre - 分层布局",
+            "Cola - 力导向布局",
+            "Grid - 网格布局",
+            "Circle - 环形布局"
+          ],
+          "description": "图布局算法"
+        },
+        "graph.nodeColor": {
+          "type": "string",
+          "default": "#4CAF50",
+          "description": "默认节点颜色"
+        },
+        "graph.edgeColor": {
+          "type": "string",
+          "default": "#666",
+          "description": "默认边颜色"
+        }
+      }
+    }
+  }
+}
