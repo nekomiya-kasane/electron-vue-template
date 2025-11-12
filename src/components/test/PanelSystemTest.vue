@@ -66,7 +66,7 @@ const panel1Count = ref(0)
 const testText = ref('')
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .test-container {
   height: 100vh;
   display: flex;

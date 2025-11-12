@@ -458,7 +458,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .model-3d-view {
   position: relative;
   width: 100%;

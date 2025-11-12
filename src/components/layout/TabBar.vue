@@ -54,7 +54,7 @@ const addTab = () => {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .tab-bar {
   display: flex;
   align-items: center;

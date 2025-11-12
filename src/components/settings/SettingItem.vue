@@ -153,7 +153,7 @@ function resetToDefault() {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .setting-item {
   padding: 16px 0;
   border-bottom: 1px solid #e3e5e7;

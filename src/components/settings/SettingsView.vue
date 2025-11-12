@@ -181,7 +181,7 @@ watch(viewMode, (newMode) => {
 initJsonContent()
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .settings-view {
   display: flex;
   flex-direction: column;

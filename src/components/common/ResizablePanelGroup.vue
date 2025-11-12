@@ -242,7 +242,7 @@ defineExpose({
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .resizable-panel-group {
   display: flex;
   flex-direction: column;
@@ -263,10 +263,14 @@ defineExpose({
   transition: background 0.2s;
   position: relative;
   z-index: 10;
-}
 
-:deep(.resize-handle:hover) {
-  background: #e9ecef;
+  &:hover {
+    background: #e9ecef;
+
+    .resize-indicator {
+      background: #4a9eff;
+    }
+  }
 }
 
 :deep(.resize-indicator) {
@@ -275,9 +279,5 @@ defineExpose({
   background: #c5cdd5;
   border-radius: 1px;
   transition: background 0.2s;
-}
-
-:deep(.resize-handle:hover .resize-indicator) {
-  background: #4a9eff;
 }
 </style>

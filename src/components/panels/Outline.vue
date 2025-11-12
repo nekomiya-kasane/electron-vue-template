@@ -15,7 +15,7 @@
   </div>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
 .outline {
   display: flex;
   flex-direction: column;

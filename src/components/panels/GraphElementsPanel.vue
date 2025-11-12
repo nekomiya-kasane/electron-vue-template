@@ -456,7 +456,7 @@ defineExpose({
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .elements-list-panel,
 .details-panel {
   display: flex;

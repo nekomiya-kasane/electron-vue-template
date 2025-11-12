@@ -23,7 +23,7 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .loading {
   display: flex;
   flex-direction: column;

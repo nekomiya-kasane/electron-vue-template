@@ -7,7 +7,7 @@
 <script setup lang="ts">
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .test-box {
   background-color: green;
   color: white;

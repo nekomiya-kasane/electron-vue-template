@@ -184,7 +184,7 @@ async function handleReset() {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .plugin-settings {
   padding: 16px;
   max-width: 1200px;

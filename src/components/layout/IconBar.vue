@@ -39,7 +39,7 @@ const handleClick = (id: string) => {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .icon-bar {
   display: flex;
   flex-direction: column;

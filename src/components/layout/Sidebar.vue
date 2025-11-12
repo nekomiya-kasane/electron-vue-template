@@ -88,7 +88,7 @@ const stopResize = () => {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .sidebar {
   display: flex;
   flex-direction: column;

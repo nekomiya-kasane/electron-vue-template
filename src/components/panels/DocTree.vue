@@ -19,7 +19,7 @@
   </div>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
 .doc-tree {
   display: flex;
   flex-direction: column;

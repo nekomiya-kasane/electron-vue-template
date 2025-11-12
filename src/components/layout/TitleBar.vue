@@ -23,7 +23,7 @@ const handleLogoClick = (event: MouseEvent) => {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .title-bar {
     display: flex;
     align-items: center;

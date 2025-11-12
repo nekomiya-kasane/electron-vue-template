@@ -1386,7 +1386,7 @@ defineExpose({
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .graph-view {
   position: relative;
   width: 100%;

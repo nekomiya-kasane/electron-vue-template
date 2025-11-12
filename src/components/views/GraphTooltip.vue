@@ -538,7 +538,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .graph-tooltip {
   position: fixed;
   min-width: 300px;

@@ -11,7 +11,7 @@
   </div>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
 .backlinks {
   display: flex;
   flex-direction: column;

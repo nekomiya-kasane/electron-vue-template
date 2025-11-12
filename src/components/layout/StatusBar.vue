@@ -59,7 +59,7 @@ const rightItems = computed(() =>
 )
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .status-bar {
   display: flex;
   align-items: center;

@@ -86,7 +86,7 @@ const close = () => {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .app-menu {
   position: fixed;
   top: 0;

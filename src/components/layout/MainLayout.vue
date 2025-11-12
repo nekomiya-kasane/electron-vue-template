@@ -242,7 +242,7 @@ const closeWindow = () => {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .main-layout {
   display: flex;
   flex-direction: column;

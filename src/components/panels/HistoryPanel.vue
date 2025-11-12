@@ -179,7 +179,7 @@ defineExpose({
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .history-panel {
   display: flex;
   flex-direction: column;

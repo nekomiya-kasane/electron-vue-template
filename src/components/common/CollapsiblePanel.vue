@@ -83,21 +83,22 @@ defineExpose({
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .collapsible-panel {
   display: flex;
   flex-direction: column;
   border-bottom: 1px solid #e3e5e7;
   background: #ffffff;
-  transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1), flex 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
+              flex 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
 
-.collapsible-panel.collapsed {
-  flex: 0 0 auto;
-  min-height: 0;
+  &.collapsed {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
 }
 
 .panel-header {
@@ -111,10 +112,10 @@ defineExpose({
   user-select: none;
   transition: background 0.2s;
   flex-shrink: 0;
-}
 
-.panel-header:hover {
-  background: #e9ecef;
+  &:hover {
+    background: #e9ecef;
+  }
 }
 
 .panel-title {
@@ -122,13 +123,13 @@ defineExpose({
   align-items: center;
   gap: 8px;
   flex: 1;
-}
 
-.panel-title h3 {
-  font-size: 13px;
-  font-weight: 600;
-  color: #202124;
-  margin: 0;
+  h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #202124;
+    margin: 0;
+  }
 }
 
 .panel-actions {
@@ -150,11 +151,11 @@ defineExpose({
   cursor: pointer;
   transition: all 0.2s;
   border-radius: 3px;
-}
 
-.collapse-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #202124;
+  &:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #202124;
+  }
 }
 
 .panel-content {

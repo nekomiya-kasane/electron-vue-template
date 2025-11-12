@@ -13,7 +13,7 @@
   </div>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
 .tags {
   display: flex;
   flex-direction: column;

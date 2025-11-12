@@ -44,7 +44,7 @@ const updateTitle = (event: Event) => {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .editor-view {
   display: flex;
   flex-direction: column;
