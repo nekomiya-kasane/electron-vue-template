@@ -75,6 +75,51 @@
           <span class="icon">{{ socketAutoLayout ? '🔄' : '⏸️' }}</span>
         </button>
       </div>
+
+      <div class="toolbar-divider"></div>
+
+      <div class="toolbar-section">
+        <button 
+          @click="showCommandPanel = !showCommandPanel" 
+          :class="['toolbar-btn', { active: showCommandPanel }]"
+          title="切换命令面板 (Ctrl+`)"
+        >
+          <span class="icon">⌨️</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 底部命令面板 -->
+    <div v-if="showCommandPanel" class="bottom-command-panel">
+      <div class="command-panel-header">
+        <span class="panel-title">命令面板</span>
+        <button @click="showCommandPanel = false" class="panel-close-btn">✕</button>
+      </div>
+      <div class="command-panel-content">
+        <div class="command-input-area">
+          <span class="prompt">></span>
+          <input
+            ref="commandInputRef"
+            v-model="currentCommand"
+            type="text"
+            class="command-input"
+            placeholder="输入命令（help 查看帮助）"
+            @keydown.enter="executeCurrentCommand"
+            @keydown.up="navigateHistory(-1)"
+            @keydown.down="navigateHistory(1)"
+          />
+        </div>
+        <div class="command-output-area" ref="commandOutputRef">
+          <div
+            v-for="(line, index) in commandOutput"
+            :key="index"
+            :class="['output-line', line.type]"
+          >
+            <span v-if="line.type === 'command'" class="prompt">></span>
+            <span class="output-text">{{ line.text }}</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 边样式设置面板 -->
@@ -188,7 +233,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { pluginManager } from '@/core/plugin'
 import cytoscape, { type Core } from 'cytoscape'
 // @ts-ignore
@@ -197,6 +242,8 @@ import dagre from 'cytoscape-dagre'
 import cola from 'cytoscape-cola'
 import { useGraphSocket } from './useGraphSocket'
 import GraphTooltip from './GraphTooltip.vue'
+import CommandPalette from '../common/CommandPalette.vue'
+import { CommandExecutor } from '@/utils/commandExecutor'
 
 // 注册布局插件
 cytoscape.use(dagre)
@@ -249,6 +296,16 @@ const tooltip = ref({
 })
 
 let tooltipHideTimer: any = null
+
+// 命令面板
+const showCommandPanel = ref(false)
+const currentCommand = ref('')
+const commandOutput = ref<Array<{ text: string; type: 'command' | 'success' | 'error' | 'info' }>>([])
+const commandInputRef = ref<HTMLInputElement | null>(null)
+const commandOutputRef = ref<HTMLElement | null>(null)
+const commandHistory = ref<string[]>([])
+const commandHistoryIndex = ref(-1)
+let commandExecutor: CommandExecutor | null = null
 
 // 边样式配置
 interface EdgeStyle {
@@ -965,6 +1022,60 @@ function clearGraph() {
   updateStats()
 }
 
+// 执行当前命令
+function executeCurrentCommand() {
+  const cmd = currentCommand.value.trim()
+  if (!cmd || !commandExecutor) return
+  
+  // 添加到输出
+  commandOutput.value.push({
+    text: cmd,
+    type: 'command'
+  })
+  
+  // 添加到历史
+  if (commandHistory.value[commandHistory.value.length - 1] !== cmd) {
+    commandHistory.value.push(cmd)
+  }
+  commandHistoryIndex.value = commandHistory.value.length
+  
+  // 执行命令
+  const result = commandExecutor.execute(cmd)
+  
+  // 添加结果到输出
+  commandOutput.value.push({
+    text: result.message,
+    type: result.success ? 'success' : 'error'
+  })
+  
+  // 清空输入
+  currentCommand.value = ''
+  
+  // 滚动到底部
+  nextTick(() => {
+    if (commandOutputRef.value) {
+      commandOutputRef.value.scrollTop = commandOutputRef.value.scrollHeight
+    }
+  })
+}
+
+// 导航历史命令
+function navigateHistory(direction: number) {
+  if (commandHistory.value.length === 0) return
+  
+  commandHistoryIndex.value += direction
+  
+  if (commandHistoryIndex.value < 0) {
+    commandHistoryIndex.value = 0
+  } else if (commandHistoryIndex.value >= commandHistory.value.length) {
+    commandHistoryIndex.value = commandHistory.value.length
+    currentCommand.value = ''
+    return
+  }
+  
+  currentCommand.value = commandHistory.value[commandHistoryIndex.value] || ''
+}
+
 // 强制重新渲染所有边的样式
 function forceRerender() {
   if (!cy) return
@@ -1262,6 +1373,31 @@ onMounted(() => {
   // 监听数据包
   const eventBus = pluginManager.getEventBus()
   eventBus.on('data:packet', handleDataPacket)
+  
+  // 初始化命令执行器
+  commandExecutor = new CommandExecutor({
+    cy: cyRef.value,
+    eventBus
+  })
+  
+  // 键盘快捷键：Ctrl+` 切换命令面板
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.ctrlKey && e.key === '`') {
+      e.preventDefault()
+      showCommandPanel.value = !showCommandPanel.value
+      if (showCommandPanel.value) {
+        nextTick(() => {
+          commandInputRef.value?.focus()
+        })
+      }
+    }
+  }
+  window.addEventListener('keydown', handleKeyDown)
+  
+  // 清理
+  onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeyDown)
+  })
   
   // 监听侧边栏的聚焦事件
   eventBus.on('graph:focusNode', (nodeId: string) => {
@@ -1715,5 +1851,160 @@ defineExpose({
   font-weight: 600;
   border-radius: 10px;
   margin-left: 4px;
+}
+
+/* 底部命令面板 */
+.bottom-command-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 250px;
+  background: #1e1e1e;
+  border-top: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.command-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #252526;
+  border-bottom: 1px solid #333;
+}
+
+.panel-title {
+  color: #e0e0e0;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.panel-close-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.panel-close-btn:hover {
+  background: #333;
+  color: #fff;
+}
+
+.command-panel-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.command-input-area {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #333;
+}
+
+.command-input-area .prompt {
+  color: #4a9eff;
+  margin-right: 8px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-weight: bold;
+}
+
+.command-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e0e0e0;
+  font-size: 13px;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.command-input::placeholder {
+  color: #666;
+}
+
+.command-output-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.output-line {
+  margin-bottom: 4px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.output-line.command {
+  color: #4a9eff;
+}
+
+.output-line.success {
+  color: #4ec9b0;
+}
+
+.output-line.error {
+  color: #f48771;
+}
+
+.output-line.info {
+  color: #d4d4d4;
+}
+
+.output-line .prompt {
+  color: #4a9eff;
+  margin-right: 8px;
+  font-weight: bold;
+}
+
+.output-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 滚动条样式 */
+.command-output-area::-webkit-scrollbar {
+  width: 8px;
+}
+
+.command-output-area::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.command-output-area::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+.command-output-area::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 </style>

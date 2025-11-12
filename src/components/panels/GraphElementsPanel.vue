@@ -97,7 +97,10 @@
       <div v-if="historyVisible" class="history-content">
         <div class="history-header-info">
           <h4>{{ historyElement?.label || historyElement?.id }}</h4>
-          <button @click="historyVisible = false" class="close-btn">✕</button>
+          <div class="history-actions">
+            <button @click="exportHistory" class="export-btn" title="导出为命令">📋</button>
+            <button @click="historyVisible = false" class="close-btn">✕</button>
+          </div>
         </div>
         <div class="history-list">
           <div 
@@ -250,6 +253,7 @@ import { ref, computed } from 'vue'
 import { pluginManager } from '@/core/plugin'
 import CollapsiblePanel from '@/components/common/CollapsiblePanel.vue'
 import ResizablePanelGroup from '@/components/common/ResizablePanelGroup.vue'
+import { CommandExecutor } from '@/utils/commandExecutor'
 
 // 接口定义（与原来相同）
 interface GraphNode {
@@ -353,6 +357,52 @@ function showHistory(element: GraphNode | GraphEdge) {
   historyElement.value = element
   historyVisible.value = true
   selectedElement.value = null
+}
+
+// 导出历史记录为命令
+function exportHistory() {
+  if (!historyElement.value) return
+  
+  const history = elementHistory.value
+  if (history.length === 0) {
+    alert('暂无历史记录')
+    return
+  }
+  
+  // 将历史记录转换为命令
+  const commands = history.map(record => {
+    return CommandExecutor.historyToCommand(record)
+  }).filter(cmd => !cmd.startsWith('#'))  // 过滤掉注释
+  
+  // 生成脚本内容
+  const script = `#!/bin/bash
+# 历史记录导出
+# 元素: ${historyElement.value.label || historyElement.value.id}
+# 导出时间: ${new Date().toLocaleString('zh-CN')}
+# 
+# 使用方法：
+# 1. 在命令面板中逐行粘贴执行
+# 2. 或保存为脚本文件批量执行
+
+${commands.join('\n')}
+`
+  
+  // 复制到剪贴板
+  navigator.clipboard.writeText(script).then(() => {
+    alert('历史记录已复制到剪贴板！')
+  }).catch(err => {
+    console.error('复制失败:', err)
+    // 降级方案：显示在对话框中
+    const textarea = document.createElement('textarea')
+    textarea.value = script
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    alert('历史记录已复制到剪贴板！')
+  })
 }
 
 // 格式化时间
@@ -673,6 +723,12 @@ defineExpose({
   margin: 0;
 }
 
+.history-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.export-btn,
 .close-btn {
   width: 24px;
   height: 24px;
@@ -686,6 +742,12 @@ defineExpose({
   color: #5f6368;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.export-btn:hover,
+.close-btn:hover {
+  background: #f1f3f4;
+  border-color: #dadce0;
 }
 
 .close-btn:hover {
