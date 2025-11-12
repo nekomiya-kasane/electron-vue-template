@@ -13,6 +13,8 @@ export interface CommandContext {
 
 export class CommandExecutor {
   private context: CommandContext
+  private readonly validNodeTypes = ['class', 'interface', 'enum', 'function', 'variable', 'default']
+  private readonly validEdgeTypes = ['association', 'inheritance', 'dependency', 'implementation', 'composition', 'aggregation']
 
   constructor(context: CommandContext) {
     this.context = context
@@ -41,6 +43,9 @@ export class CommandExecutor {
       
       case 'select':
         return this.selectElement(args)
+      
+      case 'set':
+        return this.setProperty(args)
       
       case 'clear':
         return this.clearGraph()
@@ -71,6 +76,7 @@ export class CommandExecutor {
   delete <name>               删除节点
   select <name>               选择节点
   focus <name>                聚焦到节点
+  set type <name> <type>      设置节点类型
 
 边操作：
   connect <from> <to> [type]  创建边
@@ -81,9 +87,16 @@ export class CommandExecutor {
   list [nodes|edges]          列出所有元素
   export                      导出历史记录为命令
 
+有效节点类型：
+  ${this.validNodeTypes.join(', ')}
+
+有效边类型：
+  ${this.validEdgeTypes.join(', ')}
+
 示例：
   create MyClass class
   connect MyClass BaseClass inheritance
+  set type MyClass interface
   select MyClass
   focus MyClass
   delete MyClass
@@ -104,6 +117,14 @@ export class CommandExecutor {
 
     const name = args[0]
     const type = args[1] || 'class'
+
+    // 验证节点类型
+    if (!this.validNodeTypes.includes(type)) {
+      return {
+        success: false,
+        message: `无效的节点类型: ${type}。有效类型: ${this.validNodeTypes.join(', ')}`
+      }
+    }
 
     this.context.eventBus?.emit('debugger:createVertex', { name, type })
 
@@ -160,11 +181,24 @@ export class CommandExecutor {
     const target = args[1]
     const edgeType = args[2] || 'association'
 
+    // 验证边类型
+    if (!this.validEdgeTypes.includes(edgeType)) {
+      return {
+        success: false,
+        message: `无效的边类型: ${edgeType}。有效类型: ${this.validEdgeTypes.join(', ')}`
+      }
+    }
+
     this.context.eventBus?.emit('debugger:createEdge', {
       source,
       target,
       edgeType
     })
+
+    // 触发边渲染刷新
+    setTimeout(() => {
+      this.context.eventBus?.emit('graph:refreshEdges')
+    }, 100)
 
     return {
       success: true,
@@ -278,6 +312,69 @@ export class CommandExecutor {
     return {
       success: true,
       message: `已聚焦到节点: ${name}`
+    }
+  }
+
+  private setProperty(args: string[]): CommandResult {
+    if (args.length < 3) {
+      return {
+        success: false,
+        message: '用法: set type <name> <type>'
+      }
+    }
+
+    const property = args[0].toLowerCase()
+    const name = args[1]
+    const value = args[2]
+
+    if (property !== 'type') {
+      return {
+        success: false,
+        message: `不支持的属性: ${property}。当前仅支持 'type'`
+      }
+    }
+
+    if (!this.context.cy) {
+      return {
+        success: false,
+        message: '图未初始化'
+      }
+    }
+
+    const node = this.context.cy.$id(name)
+    if (node.length === 0) {
+      return {
+        success: false,
+        message: `节点不存在: ${name}`
+      }
+    }
+
+    // 验证节点类型
+    if (!this.validNodeTypes.includes(value)) {
+      return {
+        success: false,
+        message: `无效的节点类型: ${value}。有效类型: ${this.validNodeTypes.join(', ')}`
+      }
+    }
+
+    // 更新节点类型
+    const colorMap: Record<string, string> = {
+      'class': '#4A90E2',
+      'interface': '#50C878',
+      'enum': '#F5A623',
+      'function': '#BD10E0',
+      'variable': '#7ED321',
+      'default': '#9013FE'
+    }
+
+    node.data('type', value)
+    node.data('color', colorMap[value] || colorMap['default'])
+
+    this.context.eventBus?.emit('graph:nodeTypeChanged', { name, type: value })
+
+    return {
+      success: true,
+      message: `已设置节点 ${name} 的类型为: ${value}`
     }
   }
 

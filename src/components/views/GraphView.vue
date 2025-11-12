@@ -1491,6 +1491,11 @@ onMounted(() => {
       implementedBy: implementedByList
     })
   })
+  
+  // 监听边渲染刷新事件
+  eventBus.on('graph:refreshEdges', () => {
+    forceRerender()
+  })
 })
 
 // 监听 cy 变化
