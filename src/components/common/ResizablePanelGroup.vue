@@ -5,10 +5,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 
 const containerRef = ref<HTMLElement | null>(null)
 const panelSizes = ref<Map<HTMLElement, number>>(new Map())
+const panelRatios = ref<Map<HTMLElement, number>>(new Map())  // 保存面板高度比例而非像素值
 
 onMounted(async () => {
   await nextTick()
@@ -17,7 +18,20 @@ onMounted(async () => {
   
   // 监听子元素的变化
   observePanelChanges()
+  
+  // 监听窗口大小变化
+  window.addEventListener('resize', handleWindowResize)
 })
+
+onUnmounted(() => {
+  // 清理窗口大小监听器
+  window.removeEventListener('resize', handleWindowResize)
+})
+
+// 处理窗口大小变化
+function handleWindowResize() {
+  redistributeSpace()
+}
 
 function observePanelChanges() {
   if (!containerRef.value) return
@@ -85,62 +99,56 @@ function redistributeSpace() {
   
   // 为展开的面板分配空间
   if (expandedPanels.length > 0) {
-    // 检查是否有已设置的高度
-    let totalSetHeight = 0
-    const panelsWithSetHeight: HTMLElement[] = []
-    const panelsWithoutSetHeight: HTMLElement[] = []
+    // 检查是否有已设置的比例
+    let totalRatio = 0
+    const panelsWithRatio: HTMLElement[] = []
+    const panelsWithoutRatio: HTMLElement[] = []
     
     expandedPanels.forEach(p => {
-      const savedSize = panelSizes.value.get(p)
-      if (savedSize && savedSize > 0) {
-        totalSetHeight += savedSize
-        panelsWithSetHeight.push(p)
+      const savedRatio = panelRatios.value.get(p)
+      if (savedRatio && savedRatio > 0) {
+        totalRatio += savedRatio
+        panelsWithRatio.push(p)
       } else {
-        panelsWithoutSetHeight.push(p)
+        panelsWithoutRatio.push(p)
       }
     })
     
-    // 如果有未设置高度的面板，平均分配剩余空间
-    if (panelsWithoutSetHeight.length > 0) {
-      const remainingHeight = availableHeight - totalSetHeight
-      const heightPerPanel = Math.max(100, remainingHeight / panelsWithoutSetHeight.length)
+    // 如果有未设置比例的面板，平均分配剩余比例
+    if (panelsWithoutRatio.length > 0) {
+      const remainingRatio = 1 - totalRatio
+      const ratioPerPanel = remainingRatio / panelsWithoutRatio.length
       
-      panelsWithoutSetHeight.forEach(p => {
-        // 添加动画类
-        p.classList.add('animating')
+      panelsWithoutRatio.forEach(p => {
+        const height = availableHeight * ratioPerPanel
+        // 设置 transition
+        p.style.transition = 'height 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
         p.style.flex = 'none'
-        p.style.height = `${heightPerPanel}px`
-        panelSizes.value.set(p, heightPerPanel)
-        
-        // 动画结束后移除类
-        setTimeout(() => p.classList.remove('animating'), 250)
+        p.style.height = `${height}px`
+        panelRatios.value.set(p, ratioPerPanel)
       })
     }
     
-    // 设置已有高度的面板
-    panelsWithSetHeight.forEach(p => {
-      const savedSize = panelSizes.value.get(p)!
-      // 添加动画类
-      p.classList.add('animating')
+    // 设置已有比例的面板
+    panelsWithRatio.forEach(p => {
+      const savedRatio = panelRatios.value.get(p)!
+      const height = availableHeight * savedRatio
+      // 设置 transition
+      p.style.transition = 'height 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
       p.style.flex = 'none'
-      p.style.height = `${savedSize}px`
-      
-      // 动画结束后移除类
-      setTimeout(() => p.classList.remove('animating'), 250)
+      p.style.height = `${height}px`
     })
     
-    // 如果没有任何已设置的高度，平均分配
-    if (panelsWithSetHeight.length === 0 && panelsWithoutSetHeight.length === 0) {
-      const heightPerPanel = availableHeight / expandedPanels.length
+    // 如果没有任何已设置的比例，平均分配
+    if (panelsWithRatio.length === 0 && panelsWithoutRatio.length === 0) {
+      const ratioPerPanel = 1 / expandedPanels.length
       expandedPanels.forEach(p => {
-        // 添加动画类
-        p.classList.add('animating')
+        const height = availableHeight * ratioPerPanel
+        // 设置 transition
+        p.style.transition = 'height 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
         p.style.flex = 'none'
-        p.style.height = `${heightPerPanel}px`
-        panelSizes.value.set(p, heightPerPanel)
-        
-        // 动画结束后移除类
-        setTimeout(() => p.classList.remove('animating'), 250)
+        p.style.height = `${height}px`
+        panelRatios.value.set(p, ratioPerPanel)
       })
     }
   }
@@ -187,6 +195,7 @@ function startResize(event: MouseEvent, topPanel: HTMLElement, bottomPanel: HTML
   const startY = event.clientY
   const startTopHeight = topPanel.offsetHeight
   const startBottomHeight = bottomPanel.offsetHeight
+  const totalHeight = startTopHeight + startBottomHeight
   
   const onMouseMove = (e: MouseEvent) => {
     const deltaY = e.clientY - startY
@@ -202,9 +211,11 @@ function startResize(event: MouseEvent, topPanel: HTMLElement, bottomPanel: HTML
       bottomPanel.style.flex = 'none'
       bottomPanel.style.height = `${newBottomHeight}px`
       
-      // 保存新的大小
-      panelSizes.value.set(topPanel, newTopHeight)
-      panelSizes.value.set(bottomPanel, newBottomHeight)
+      // 保存新的比例（相对于两个面板的总高度）
+      const topRatio = newTopHeight / totalHeight
+      const bottomRatio = newBottomHeight / totalHeight
+      panelRatios.value.set(topPanel, topRatio)
+      panelRatios.value.set(bottomPanel, bottomRatio)
     }
   }
   
@@ -213,6 +224,9 @@ function startResize(event: MouseEvent, topPanel: HTMLElement, bottomPanel: HTML
     document.removeEventListener('mouseup', onMouseUp)
     document.body.style.cursor = ''
     document.body.style.userSelect = ''
+    
+    // 拖动结束后重新计算所有面板，确保比例正确
+    redistributeSpace()
   }
   
   document.body.style.cursor = 'ns-resize'
@@ -234,11 +248,6 @@ defineExpose({
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-}
-
-/* 动画类 - 用于平滑的高度变化 */
-:deep(.collapsible-panel.animating) {
-  transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 :deep(.resize-handle) {
