@@ -22,15 +22,34 @@ onMounted(async () => {
 function observePanelChanges() {
   if (!containerRef.value) return
   
-  const observer = new MutationObserver(() => {
-    nextTick(() => {
-      redistributeSpace()
+  const observer = new MutationObserver((mutations) => {
+    // 只响应 collapsed class 的变化，忽略 animating class
+    const hasCollapsedChange = mutations.some(mutation => {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+        const target = mutation.target as HTMLElement
+        const oldClasses = mutation.oldValue || ''
+        const newClasses = target.className
+        
+        // 检查 collapsed 状态是否改变
+        const wasCollapsed = oldClasses.includes('collapsed')
+        const isCollapsed = newClasses.includes('collapsed')
+        
+        return wasCollapsed !== isCollapsed
+      }
+      return false
     })
+    
+    if (hasCollapsedChange) {
+      nextTick(() => {
+        redistributeSpace()
+      })
+    }
   })
   
   observer.observe(containerRef.value, {
     attributes: true,
     attributeFilter: ['class'],
+    attributeOldValue: true,  // 需要旧值来比较
     subtree: true
   })
 }
@@ -87,26 +106,41 @@ function redistributeSpace() {
       const heightPerPanel = Math.max(100, remainingHeight / panelsWithoutSetHeight.length)
       
       panelsWithoutSetHeight.forEach(p => {
+        // 添加动画类
+        p.classList.add('animating')
         p.style.flex = 'none'
         p.style.height = `${heightPerPanel}px`
         panelSizes.value.set(p, heightPerPanel)
+        
+        // 动画结束后移除类
+        setTimeout(() => p.classList.remove('animating'), 250)
       })
     }
     
     // 设置已有高度的面板
     panelsWithSetHeight.forEach(p => {
       const savedSize = panelSizes.value.get(p)!
+      // 添加动画类
+      p.classList.add('animating')
       p.style.flex = 'none'
       p.style.height = `${savedSize}px`
+      
+      // 动画结束后移除类
+      setTimeout(() => p.classList.remove('animating'), 250)
     })
     
     // 如果没有任何已设置的高度，平均分配
     if (panelsWithSetHeight.length === 0 && panelsWithoutSetHeight.length === 0) {
       const heightPerPanel = availableHeight / expandedPanels.length
       expandedPanels.forEach(p => {
+        // 添加动画类
+        p.classList.add('animating')
         p.style.flex = 'none'
         p.style.height = `${heightPerPanel}px`
         panelSizes.value.set(p, heightPerPanel)
+        
+        // 动画结束后移除类
+        setTimeout(() => p.classList.remove('animating'), 250)
       })
     }
   }
@@ -200,6 +234,11 @@ defineExpose({
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+}
+
+/* 动画类 - 用于平滑的高度变化 */
+:deep(.collapsible-panel.animating) {
+  transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 :deep(.resize-handle) {

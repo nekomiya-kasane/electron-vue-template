@@ -89,7 +89,7 @@ defineExpose({
   flex-direction: column;
   border-bottom: 1px solid #e3e5e7;
   background: #ffffff;
-  transition: flex 0.2s ease;
+  transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1), flex 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex: 1;
   min-height: 0;
   overflow: hidden;
