@@ -45,6 +45,9 @@
         <button @click="showEdgeStylePanel = !showEdgeStylePanel" class="toolbar-btn" title="边样式设置">
           <span class="icon">🎨</span>
         </button>
+        <button @click="forceRerender" class="toolbar-btn" title="重新渲染图">
+          <span class="icon">🔃</span>
+        </button>
         <button @click="clearGraph" class="toolbar-btn" title="清空图">
           <span class="icon">🗑️</span>
         </button>
@@ -170,6 +173,17 @@
       <div v-if="selectedNodeId">选中节点: {{ selectedNodeId }}</div>
       <div v-if="selectedEdgeId">选中边: {{ selectedEdgeId }}</div>
     </div>
+
+    <!-- Tooltip -->
+    <GraphTooltip
+      :visible="tooltip.visible"
+      :element-id="tooltip.elementId"
+      :element-type="tooltip.elementType"
+      :position="tooltip.position"
+      :cy="cyRef"
+      @close="hideTooltip"
+      @focus="focusNode"
+    />
   </div>
 </template>
 
@@ -182,6 +196,7 @@ import dagre from 'cytoscape-dagre'
 // @ts-ignore
 import cola from 'cytoscape-cola'
 import { useGraphSocket } from './useGraphSocket'
+import GraphTooltip from './GraphTooltip.vue'
 
 // 注册布局插件
 cytoscape.use(dagre)
@@ -224,6 +239,16 @@ const zoomLevel = ref(100)
 const selectedNodeId = ref<string | null>(null)
 const selectedEdgeId = ref<string | null>(null)
 const selectedLayout = ref('cose')  // 使用 CoSE 布局，节点分布更均匀
+
+// Tooltip 状态
+const tooltip = ref({
+  visible: false,
+  elementId: '',
+  elementType: 'node' as 'node' | 'edge',
+  position: { x: 0, y: 0 }
+})
+
+let tooltipHideTimer: any = null
 
 // 边样式配置
 interface EdgeStyle {
@@ -387,6 +412,30 @@ function initCytoscape() {
   cy.on('tap', 'edge', (evt) => {
     const edge = evt.target
     pluginManager.getEventBus().emit('graph:edgeTapped', edge.id())
+  })
+
+  // 鼠标悬浮事件 - 节点
+  cy.on('mouseover', 'node', (evt) => {
+    const node = evt.target
+    showTooltip(node.id(), 'node', evt.originalEvent)
+  })
+
+  cy.on('mouseout', 'node', () => {
+    tooltipHideTimer = setTimeout(() => {
+      hideTooltip()
+    }, 300)
+  })
+
+  // 鼠标悬浮事件 - 边
+  cy.on('mouseover', 'edge', (evt) => {
+    const edge = evt.target
+    showTooltip(edge.id(), 'edge', evt.originalEvent)
+  })
+
+  cy.on('mouseout', 'edge', () => {
+    tooltipHideTimer = setTimeout(() => {
+      hideTooltip()
+    }, 300)
   })
 
   cy.on('zoom', () => {
@@ -885,10 +934,14 @@ function applyLayout() {
   
   const layout = cy.layout(layoutOptions)
   
-  // 布局完成后保存快照
+  // 布局完成后保存快照并重新渲染
   layout.on('layoutstop', () => {
     saveLayoutSnapshot(layoutName)
     fitView()
+    // 布局后强制重新渲染边的样式
+    setTimeout(() => {
+      forceRerender()
+    }, 100)
   })
   
   layout.run()
@@ -900,6 +953,86 @@ function clearGraph() {
   selectedNodeId.value = null
   selectedEdgeId.value = null
   updateStats()
+}
+
+// 强制重新渲染所有边的样式
+function forceRerender() {
+  if (!cy) return
+  
+  console.log('Force rerendering edges...')
+  
+  // 遍历所有边，强制更新样式
+  cy.edges().forEach(edge => {
+    const data = edge.data()
+    
+    // 确保所有样式属性都有值
+    const color = data.color || '#666'
+    const width = data.width || 2
+    const lineStyle = data.lineStyle || 'solid'
+    const arrowShape = data.arrowShape || 'triangle'
+    const curveStyle = data.curveStyle || 'bezier'
+    const opacity = data.opacity !== undefined ? data.opacity : 1
+    
+    // 直接设置样式（不使用 data）
+    edge.style({
+      'width': width,
+      'line-color': color,
+      'target-arrow-color': color,
+      'target-arrow-shape': arrowShape,
+      'curve-style': curveStyle,
+      'line-style': lineStyle,
+      'opacity': opacity
+    })
+    
+    console.log(`Rerendered edge ${data.id}:`, {
+      color, width, lineStyle, arrowShape
+    })
+  })
+  
+  // 强制重绘
+  cy.style().update()
+  
+  console.log(`Rerendered ${cy.edges().length} edges`)
+}
+
+// Tooltip 相关函数
+function showTooltip(elementId: string, elementType: 'node' | 'edge', event: any) {
+  clearTimeout(tooltipHideTimer)
+  
+  tooltip.value = {
+    visible: true,
+    elementId,
+    elementType,
+    position: {
+      x: event.renderedPosition?.x || event.clientX || 0,
+      y: event.renderedPosition?.y || event.clientY || 0
+    }
+  }
+}
+
+function hideTooltip() {
+  tooltip.value.visible = false
+}
+
+function focusNode(nodeId: string) {
+  if (!cy) return
+  
+  const node = cy.$id(nodeId)
+  if (node.length === 0) return
+  
+  // 高亮节点
+  cy.elements().removeClass('highlighted')
+  node.addClass('highlighted')
+  
+  // 聚焦到节点
+  cy.animate({
+    center: { eles: node },
+    zoom: 1.5
+  }, {
+    duration: 500
+  })
+  
+  selectedNodeId.value = nodeId
 }
 
 // 应用边样式到所有边
