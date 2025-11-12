@@ -5,6 +5,7 @@
 
 import type { SocketMessage, SocketSession } from '@/core/socket'
 import type { Core } from 'cytoscape'
+import { pluginManager } from '@/core/plugin'
 
 export interface EdgeStyle {
   lineType: 'solid' | 'dashed' | 'dotted'
@@ -161,17 +162,26 @@ export class GraphMessageHandler {
       return
     }
 
+    const color = this.nodeTypeColors['unknown']
+    
     this.cy.add({
       group: 'nodes',
       data: {
         id: name,
         label: name,
         type: 'unknown',
-        color: this.nodeTypeColors['unknown']
+        color: color
       }
     })
 
     console.log(`Created vertex: ${name} (type: unknown)`)
+    
+    // 触发事件，通知侧边栏
+    pluginManager.getEventBus().emit('graph:nodeAdded', { 
+      id: name, 
+      label: name, 
+      color: color 
+    })
   }
 
   /**
@@ -256,23 +266,29 @@ export class GraphMessageHandler {
     const edgeId = `${name}-inherits-${parent}`
     if (this.cy.$id(edgeId).length === 0) {
       const style = this.edgeStyles.inheritance
+      const edgeData = {
+        id: edgeId,
+        source: name,
+        target: parent,
+        edgeType: 'inheritance',
+        label: 'inherits',
+        color: style.color,
+        width: style.width,
+        lineStyle: style.lineType,
+        arrowShape: 'triangle',
+        curveStyle: 'bezier',
+        opacity: 1
+      }
+      
       this.cy.add({
         group: 'edges',
-        data: {
-          id: edgeId,
-          source: name,
-          target: parent,
-          edgeType: 'inheritance',
-          label: 'inherits',
-          color: style.color,
-          width: style.width,
-          lineStyle: style.lineType,
-          arrowShape: 'triangle',
-          curveStyle: 'bezier',
-          opacity: 1
-        }
+        data: edgeData
       })
+      
       console.log(`Set parent: ${name} -> ${parent}`)
+      
+      // 触发事件，通知侧边栏
+      pluginManager.getEventBus().emit('graph:edgeAdded', edgeData)
     }
   }
 
@@ -316,25 +332,30 @@ export class GraphMessageHandler {
     const style = this.edgeStyles.extension[type as keyof typeof this.edgeStyles.extension] || 
                   this.edgeStyles.extension.data
 
+    const edgeData = {
+      id: edgeId,
+      source: extension,
+      target: name,
+      edgeType: 'extension',
+      extensionType: type,
+      label: `ext:${type}`,
+      color: style.color,
+      width: style.width,
+      lineStyle: style.lineType,
+      arrowShape: 'vee',
+      curveStyle: 'bezier',
+      opacity: 1
+    }
+
     this.cy.add({
       group: 'edges',
-      data: {
-        id: edgeId,
-        source: extension,
-        target: name,
-        edgeType: 'extension',
-        extensionType: type,
-        label: `ext:${type}`,
-        color: style.color,
-        width: style.width,
-        lineStyle: style.lineType,
-        arrowShape: 'vee',
-        curveStyle: 'bezier',
-        opacity: 1
-      }
+      data: edgeData
     })
 
     console.log(`Added extension: ${extension} -> ${name} (${type})`)
+    
+    // 触发事件，通知侧边栏
+    pluginManager.getEventBus().emit('graph:edgeAdded', edgeData)
   }
 
   /**
@@ -374,25 +395,30 @@ export class GraphMessageHandler {
     const style = this.edgeStyles.implementation[type as keyof typeof this.edgeStyles.implementation] || 
                   this.edgeStyles.implementation.tie
 
+    const edgeData = {
+      id: edgeId,
+      source: name,
+      target: iface,
+      edgeType: 'implementation',
+      implementationType: type,
+      label: `impl:${type}`,
+      color: style.color,
+      width: style.width,
+      lineStyle: style.lineType,
+      arrowShape: 'diamond',
+      curveStyle: 'bezier',
+      opacity: 1
+    }
+
     this.cy.add({
       group: 'edges',
-      data: {
-        id: edgeId,
-        source: name,
-        target: iface,
-        edgeType: 'implementation',
-        implementationType: type,
-        label: `impl:${type}`,
-        color: style.color,
-        width: style.width,
-        lineStyle: style.lineType,
-        arrowShape: 'diamond',
-        curveStyle: 'bezier',
-        opacity: 1
-      }
+      data: edgeData
     })
 
     console.log(`Added interface: ${name} -> ${iface} (${type})`)
+    
+    // 触发事件，通知侧边栏
+    pluginManager.getEventBus().emit('graph:edgeAdded', edgeData)
   }
 
   /**
