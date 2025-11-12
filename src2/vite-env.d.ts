@@ -21,6 +21,7 @@ interface Window {
       maximize: () => Promise<void>;
       close: () => Promise<void>;
       isMaximized: () => Promise<boolean>;
+      isMinimized: () => Promise<boolean>
     };
   };
 }

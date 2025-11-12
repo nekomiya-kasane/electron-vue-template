@@ -1,0 +1,149 @@
+╔═══════════════════════════════════════════════════════════════════════╗
+║                    Socket CLI Quick Reference                         ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+USAGE:
+  node test/socket-cli-simple.js    (Recommended - with autocomplete)
+  node test/socket-cli.js           (Full version - with detailed help)
+
+CONNECTION:
+  connect                Connect to server (localhost:8080)
+  disconnect             Disconnect from server
+  exit                   Exit program
+  help                   Show help
+
+BASIC COMMANDS:
+  create <name>                      Create vertex
+  type <name> <type>                 Set vertex type
+  parent <name> <parent>             Set parent (inheritance)
+  ext <name> <extension> [type]      Add extension
+  iface <name> <interface> <type>    Add interface
+
+QUERY COMMANDS:
+  query-start                        Start query mode
+  query-querier <name>               Set querier vertex
+  query-iface <name>                 Set interface vertex
+  query-end <ok|failed|cached>       End query with result
+  query-clear                        Clear all highlights
+
+NODE TYPES:
+  unknown                Gray     (default)
+  component              Blue     (class)
+  interface              Purple   (interface)
+  tie                    Cyan     (tie type)
+  boa                    Indigo   (boa type)
+  data-extension         Green    (data ext)
+  code-extension         Green    (code ext)
+  transient-extension    Green    (transient ext)
+  cache-extension        Green    (cache ext)
+
+EDGE TYPES:
+  Extension:     data, code, cache, transient
+  Interface:     tie, tie-chain, boa
+
+QUICK START:
+  1. connect
+  2. create Dog
+  3. type Dog component
+  4. create Animal
+  5. type Animal component
+  6. parent Dog Animal
+
+EXAMPLE SESSION:
+  > connect
+  ✅ Connected!
+  
+  > create Object
+  ✓ meta-class:create
+  
+  > type Object component
+  ✓ meta-class:set-type
+  
+  > create Animal
+  ✓ meta-class:create
+  
+  > type Animal component
+  ✓ meta-class:set-type
+  
+  > parent Animal Object
+  ✓ meta-class:set-parent
+  
+  > create Dog
+  ✓ meta-class:create
+  
+  > type Dog component
+  ✓ meta-class:set-type
+  
+  > parent Dog Animal
+  ✓ meta-class:set-parent
+  
+  > create BarkingExt
+  ✓ meta-class:create
+  
+  > type BarkingExt code-extension
+  ✓ meta-class:set-type
+  
+  > ext Dog BarkingExt
+  ✓ meta-class:add-extension
+  
+  > create IPet
+  ✓ meta-class:create
+  
+  > type IPet interface
+  ✓ meta-class:set-type
+  
+  > iface Dog IPet tie
+  ✓ meta-class:add-interface
+  
+  > query-start
+  ✓ query:start-query
+  
+  > query-querier Dog
+  ✓ query:set-querier
+  
+  > query-iface IPet
+  ✓ query:set-interface
+  
+  > query-end ok
+  ✓ query:end-query
+  
+  > disconnect
+  🔌 Disconnecting...
+  
+  > exit
+  👋 Bye!
+
+SHORTCUTS (Simple version):
+  c  = create
+  t  = type
+  p  = parent
+  e  = ext
+  i  = iface
+  qs = query-start
+  qe = query-end
+  qq = query-querier
+  qi = query-iface
+  qc = query-clear
+
+TIPS:
+  • Press Tab for autocomplete
+  • Use ↑/↓ for command history
+  • 🔵 = disconnected, 🟢 = connected
+  • Commands are case-sensitive
+  • Type 'help' for detailed information
+
+TROUBLESHOOTING:
+  Connection failed?
+    → Start Electron app first
+    → Click 🟢 in GraphView to start Socket server
+    → Then run 'connect' in CLI
+  
+  Command not working?
+    → Check if connected (🟢 prompt)
+    → Type 'help' to see correct format
+  
+  Can't see changes?
+    → Open GraphView in Electron app
+    → Commands affect the graph in real-time
+
+╚═══════════════════════════════════════════════════════════════════════╝

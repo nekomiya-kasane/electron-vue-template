@@ -19,17 +19,18 @@ export function setupAppIpcEndpoints() {
 
     ipcMain.handle("window:maximize", (event) => {
         const window = BrowserWindow.fromWebContents(event.sender);
-        if (window?.isMaximized()) {
-            window.unmaximize();
-        } else {
-            window?.maximize();
-        }
+        window?.isMaximized() ? window.unmaximize() : window?.maximize();
     });
 
     ipcMain.handle("window:close", (event) => {
         const window = BrowserWindow.fromWebContents(event.sender);
         window?.close();
     });
+
+    ipcMain.handle("window:is-minimized", (event) => {
+        const window = BrowserWindow.fromWebContents(event.sender);
+        return window?.isMinimized() ?? false;
+    })
 
     ipcMain.handle("window:is-maximized", (event) => {
         const window = BrowserWindow.fromWebContents(event.sender);

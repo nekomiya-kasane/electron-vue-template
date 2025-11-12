@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="@webgpu/types" />
 
 // 定义所有".vue"文件为TS模块，且默认导出为没有 props、没有 setup 返回（RawBindings）、data 为任意的 Vue 组件类型
 declare module "*.vue" {
@@ -8,7 +9,7 @@ declare module "*.vue" {
 }
 
 interface Window {
-  electronAPI: {
+  electronAPI?: {
     platform: string;
     versions: {
       node: string;
@@ -20,6 +21,17 @@ interface Window {
       maximize: () => Promise<void>;
       close: () => Promise<void>;
       isMaximized: () => Promise<boolean>;
+      isMinimized: () => Promise<boolean>
+    };
+    socket: {
+      createServer: (name: string, port: number, host?: string) => Promise<{ success: boolean; error?: string }>;
+      stopServer: (name: string) => Promise<{ success: boolean; error?: string }>;
+      getSessions: (name: string) => Promise<any[]>;
+      getStatus: (name: string) => Promise<{ isRunning: boolean; sessionCount: number } | null>;
+      onConnection: (callback: (data: any) => void) => void;
+      onMessage: (callback: (data: any) => void) => void;
+      onDisconnection: (callback: (data: any) => void) => void;
+      removeAllListeners: () => void;
     };
   };
 }

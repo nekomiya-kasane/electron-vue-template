@@ -14,6 +14,8 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const srcDir = process.env.VITE_SRC_DIR || 'src';
+
 // additional plugins
 // this plugin checks typescript and vue files
 import checker from "vite-plugin-checker";
@@ -134,7 +136,8 @@ export default defineConfig(({ mode }) => ({
   ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "src"),
+      "@": path.resolve(__dirname, srcDir),
+      "/src": path.resolve(__dirname, srcDir),
     },
   },
 }));

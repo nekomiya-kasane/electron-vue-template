@@ -49,6 +49,29 @@
           <span class="icon">🗑️</span>
         </button>
       </div>
+
+      <div class="toolbar-divider"></div>
+
+      <div class="toolbar-section">
+        <button 
+          @click="toggleSocketServer" 
+          :class="['toolbar-btn', { active: socketIsRunning }]" 
+          :title="socketIsRunning ? '停止 Socket 服务器' : '启动 Socket 服务器'"
+        >
+          <span class="icon">{{ socketIsRunning ? '🟢' : '🔴' }}</span>
+        </button>
+        <span v-if="socketIsRunning" class="socket-info" title="活动会话数">
+          {{ socketSessions.length }}
+        </span>
+        <button 
+          v-if="socketIsRunning"
+          @click="toggleSocketAutoLayout" 
+          :class="['toolbar-btn', { active: socketAutoLayout }]" 
+          :title="socketAutoLayout ? '关闭自动布局' : '开启自动布局'"
+        >
+          <span class="icon">{{ socketAutoLayout ? '🔄' : '⏸️' }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- 边样式设置面板 -->
@@ -151,13 +174,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { pluginManager } from '@/core/plugin'
 import cytoscape, { type Core } from 'cytoscape'
 // @ts-ignore
 import dagre from 'cytoscape-dagre'
 // @ts-ignore
 import cola from 'cytoscape-cola'
+import { useGraphSocket } from './useGraphSocket'
 
 // 注册布局插件
 cytoscape.use(dagre)
@@ -169,8 +193,29 @@ defineProps<{
 
 const cyContainer = ref<HTMLDivElement | null>(null)
 const gridCanvas = ref<HTMLCanvasElement | null>(null)
+const cyRef = ref<Core | null>(null)
 let cy: Core | null = null
 let gridCtx: CanvasRenderingContext2D | null = null
+
+// Socket 集成
+const {
+  isRunning: socketIsRunning,
+  sessions: socketSessions,
+  autoLayout: socketAutoLayout,
+  layoutName: socketLayoutName,
+  start: startSocket,
+  stop: stopSocket,
+  updateCytoscape,
+  toggleAutoLayout,
+  setLayoutName: setSocketLayoutName,
+  runLayout: runSocketLayout
+} = useGraphSocket(cyRef, {
+  port: 8080,
+  host: '0.0.0.0',
+  autoStart: false,
+  autoLayout: true,
+  layoutName: 'dagre'
+})
 
 // 状态
 const nodeCount = ref(0)
@@ -359,11 +404,11 @@ function initCytoscape() {
   // 初始化网格
   initGrid()
 
-  // 创建示例图
-  createSampleGraph()
+  // 创建示例图（已注释，使用 Socket 动态创建）
+  // createSampleGraph()
   
   // 保存初始布局
-  saveLayoutSnapshot('cose')
+  // saveLayoutSnapshot('cose')
 }
 
 // 初始化网格
@@ -1039,13 +1084,48 @@ function handleDataPacket(packet: any) {
   }
 }
 
+// Socket 控制函数
+const toggleSocketServer = async () => {
+  try {
+    if (socketIsRunning.value) {
+      await stopSocket()
+      console.log('Socket server stopped')
+    } else {
+      await startSocket()
+      console.log('Socket server started on port 8080')
+    }
+  } catch (error) {
+    console.error('Socket server error:', error)
+    alert(`Socket 服务器错误: ${error}`)
+  }
+}
+
+// 切换自动布局
+const toggleSocketAutoLayout = () => {
+  toggleAutoLayout(!socketAutoLayout.value)
+  console.log(`Socket auto-layout: ${socketAutoLayout.value ? 'enabled' : 'disabled'}`)
+}
+
 // 生命周期
 onMounted(() => {
   initCytoscape()
   
+  // 更新 Socket Handler 的 Cytoscape 引用
+  if (cy) {
+    cyRef.value = cy
+    updateCytoscape(cy)
+  }
+  
   // 监听数据包
   const eventBus = pluginManager.getEventBus()
   eventBus.on('data:packet', handleDataPacket)
+})
+
+// 监听 cy 变化
+watch(cyRef, (newCy) => {
+  if (newCy) {
+    updateCytoscape(newCy)
+  }
 })
 
 onUnmounted(() => {
@@ -1378,5 +1458,26 @@ defineExpose({
 .action-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Socket 相关样式 */
+.toolbar-btn.active {
+  background: rgba(76, 175, 80, 0.1);
+  border-color: #4CAF50;
+}
+
+.socket-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: #4CAF50;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 10px;
+  margin-left: 4px;
 }
 </style>

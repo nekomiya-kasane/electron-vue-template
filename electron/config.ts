@@ -11,7 +11,7 @@ export const config = {
     },
     window: {
         main: {
-            initWidth: 800,
+            initWidth: 1400,
             initHeight: 600,
             minWidth: 800,
             minHeight: 600,
