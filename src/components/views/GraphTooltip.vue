@@ -2,13 +2,17 @@
   <div 
     v-if="visible"
     class="graph-tooltip"
-    :class="{ pinned: isPinned }"
+    :class="{ pinned: isPinned, dragging: isDragging }"
     :style="tooltipStyle"
     @mouseenter="onMouseEnter"
     @mouseleave="onMouseLeave"
   >
     <!-- 标题栏 -->
-    <div class="tooltip-header">
+    <div 
+      class="tooltip-header"
+      :class="{ draggable: isPinned }"
+      @mousedown="startDrag"
+    >
       <div class="tooltip-title">
         <span class="tooltip-icon">{{ elementType === 'node' ? '⬢' : '→' }}</span>
         <span class="tooltip-name">{{ elementData?.label || elementData?.id }}</span>
@@ -256,6 +260,7 @@ const emit = defineEmits<{
 }>()
 
 const isPinned = ref(false)
+const isDragging = ref(false)
 const elementData = ref<any>(null)
 const nodeInfo = ref<any>(null)
 const edgeInfo = ref<any>(null)
@@ -265,6 +270,10 @@ const nestedTooltip = ref({
   position: { x: 0, y: 0 }
 })
 
+// 拖动相关状态
+const dragOffset = ref({ x: 0, y: 0 })
+const currentPosition = ref({ x: 0, y: 0 })
+
 let hideTimer: any = null
 
 // Tooltip 样式
@@ -272,15 +281,26 @@ const tooltipStyle = computed(() => {
   const maxWidth = window.innerWidth - 20
   const maxHeight = window.innerHeight - 20
   
-  let x = props.position.x + 10
-  let y = props.position.y + 10
+  // 如果是固定且已拖动，使用当前位置
+  let x = isPinned.value && currentPosition.value.x !== 0 
+    ? currentPosition.value.x 
+    : props.position.x + 10
+  let y = isPinned.value && currentPosition.value.y !== 0 
+    ? currentPosition.value.y 
+    : props.position.y + 10
   
   // 防止超出屏幕
   if (x + 400 > maxWidth) {
-    x = props.position.x - 410
+    x = maxWidth - 400
+  }
+  if (x < 0) {
+    x = 0
   }
   if (y + 300 > maxHeight) {
     y = maxHeight - 300
+  }
+  if (y < 0) {
+    y = 0
   }
   
   return {
@@ -456,15 +476,65 @@ function onMouseLeave() {
   }
 }
 
+// 拖动相关函数
+function startDrag(event: MouseEvent) {
+  if (!isPinned.value) return // 只有固定后才能拖动
+  
+  event.preventDefault()
+  event.stopPropagation()
+  
+  isDragging.value = true
+  
+  // 计算鼠标相对于 tooltip 的偏移
+  const rect = (event.currentTarget as HTMLElement).parentElement?.getBoundingClientRect()
+  if (rect) {
+    dragOffset.value = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    }
+  }
+  
+  // 添加全局事件监听
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+}
+
+function onDrag(event: MouseEvent) {
+  if (!isDragging.value) return
+  
+  event.preventDefault()
+  
+  // 计算新位置
+  currentPosition.value = {
+    x: event.clientX - dragOffset.value.x,
+    y: event.clientY - dragOffset.value.y
+  }
+}
+
+function stopDrag() {
+  isDragging.value = false
+  
+  // 移除全局事件监听
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+}
+
 // 监听变化
 watch(() => [props.visible, props.elementId], () => {
   if (props.visible) {
     loadElementData()
+    // 重置位置
+    if (!isPinned.value) {
+      currentPosition.value = { x: 0, y: 0 }
+    }
   }
 }, { immediate: true })
 
 onUnmounted(() => {
   clearTimeout(hideTimer)
+  // 清理拖动事件监听
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
 })
 </script>
 
@@ -487,6 +557,11 @@ onUnmounted(() => {
   box-shadow: 0 4px 16px rgba(74, 158, 255, 0.3);
 }
 
+.graph-tooltip.dragging {
+  opacity: 0.9;
+  cursor: move;
+}
+
 .tooltip-header {
   display: flex;
   align-items: center;
@@ -494,6 +569,15 @@ onUnmounted(() => {
   padding: 10px 12px;
   background: #f8f9fa;
   border-bottom: 1px solid #e3e5e7;
+}
+
+.tooltip-header.draggable {
+  cursor: move;
+  user-select: none;
+}
+
+.tooltip-header.draggable:hover {
+  background: #e9ecef;
 }
 
 .tooltip-title {

@@ -421,7 +421,12 @@ function initCytoscape() {
   })
 
   cy.on('mouseout', 'node', () => {
+    // 延迟隐藏，给用户时间移动到 tooltip 上
     tooltipHideTimer = setTimeout(() => {
+      // 只有在非固定状态下才隐藏
+      if (!tooltip.value.visible || tooltip.value.elementId === '') {
+        return
+      }
       hideTooltip()
     }, 300)
   })
@@ -433,7 +438,12 @@ function initCytoscape() {
   })
 
   cy.on('mouseout', 'edge', () => {
+    // 延迟隐藏，给用户时间移动到 tooltip 上
     tooltipHideTimer = setTimeout(() => {
+      // 只有在非固定状态下才隐藏
+      if (!tooltip.value.visible || tooltip.value.elementId === '') {
+        return
+      }
       hideTooltip()
     }, 300)
   })
@@ -1252,6 +1262,99 @@ onMounted(() => {
   // 监听数据包
   const eventBus = pluginManager.getEventBus()
   eventBus.on('data:packet', handleDataPacket)
+  
+  // 监听侧边栏的聚焦事件
+  eventBus.on('graph:focusNode', (nodeId: string) => {
+    focusNode(nodeId)
+  })
+  
+  eventBus.on('graph:focusEdge', (edgeId: string) => {
+    if (!cy) return
+    const edge = cy.$id(edgeId)
+    if (edge.length === 0) return
+    
+    // 高亮边
+    cy.elements().removeClass('highlighted')
+    edge.addClass('highlighted')
+    
+    // 聚焦到边（聚焦到边的中点）
+    cy.animate({
+      center: { eles: edge },
+      zoom: 1.5
+    }, {
+      duration: 500
+    })
+  })
+  
+  // 处理节点详细信息请求
+  eventBus.on('graph:requestNodeDetails', (nodeId: string) => {
+    if (!cy) return
+    
+    const node = cy.$id(nodeId)
+    if (node.length === 0) return
+    
+    // 获取父类
+    const parentEdges = cy.edges(`[source = "${nodeId}"][edgeType = "inheritance"]`)
+    const parent = parentEdges.length > 0 ? parentEdges[0].data('target') : null
+    
+    // 获取子类
+    const childEdges = cy.edges(`[target = "${nodeId}"][edgeType = "inheritance"]`)
+    const children: string[] = []
+    childEdges.forEach(edge => {
+      children.push(edge.data('source'))
+    })
+    
+    // 获取扩展
+    const extensionEdges = cy.edges(`[source = "${nodeId}"][edgeType = "extension"]`)
+    const extensions: Array<{ name: string; type: string }> = []
+    extensionEdges.forEach(edge => {
+      extensions.push({
+        name: edge.data('target'),
+        type: edge.data('extensionType') || 'unknown'
+      })
+    })
+    
+    // 获取被扩展
+    const extendedByEdges = cy.edges(`[target = "${nodeId}"][edgeType = "extension"]`)
+    const extendedBy: Array<{ name: string; type: string }> = []
+    extendedByEdges.forEach(edge => {
+      extendedBy.push({
+        name: edge.data('source'),
+        type: edge.data('extensionType') || 'unknown'
+      })
+    })
+    
+    // 获取接口实现
+    const interfaceEdges = cy.edges(`[source = "${nodeId}"][edgeType = "implementation"]`)
+    const implementsList: Array<{ name: string; type: string }> = []
+    interfaceEdges.forEach(edge => {
+      implementsList.push({
+        name: edge.data('target'),
+        type: edge.data('implementationType') || 'unknown'
+      })
+    })
+    
+    // 获取被实现
+    const implementedByEdges = cy.edges(`[target = "${nodeId}"][edgeType = "implementation"]`)
+    const implementedByList: Array<{ name: string; type: string }> = []
+    implementedByEdges.forEach(edge => {
+      implementedByList.push({
+        name: edge.data('source'),
+        type: edge.data('implementationType') || 'unknown'
+      })
+    })
+    
+    // 发送响应
+    eventBus.emit('graph:nodeDetailsResponse', {
+      id: nodeId,
+      parent,
+      children,
+      extensions,
+      extendedBy,
+      implements: implementsList,
+      implementedBy: implementedByList
+    })
+  })
 })
 
 // 监听 cy 变化

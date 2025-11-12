@@ -461,10 +461,17 @@ defineExpose({
 .details-panel {
   display: flex;
   flex-direction: column;
-  min-height: 45px;
+  min-height: 100px;
 }
 
-/* 不设置固定高度，让面板自动分配空间 */
+.elements-list-panel {
+  flex: 0 0 300px;
+}
+
+.details-panel {
+  flex: 1;
+  min-height: 200px;
+}
 
 .view-toggle {
   display: flex;

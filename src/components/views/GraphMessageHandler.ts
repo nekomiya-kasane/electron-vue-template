@@ -180,7 +180,8 @@ export class GraphMessageHandler {
     pluginManager.getEventBus().emit('graph:nodeAdded', { 
       id: name, 
       label: name, 
-      color: color 
+      color: color,
+      type: 'unknown'
     })
   }
 
@@ -206,6 +207,14 @@ export class GraphMessageHandler {
     node.data('color', color)
     
     console.log(`Set type for ${name}: ${type} (color: ${color})`)
+    
+    // 触发事件，通知侧边栏更新节点颜色
+    pluginManager.getEventBus().emit('graph:nodeUpdated', {
+      id: name,
+      label: node.data('label') || name,
+      color: color,
+      type: type
+    })
     
     // 如果节点有扩展边，更新这些边的样式
     this.updateExtensionEdgesForNode(name)
